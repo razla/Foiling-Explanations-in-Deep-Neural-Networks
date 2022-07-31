@@ -10,7 +10,7 @@ from nn.utils import get_expl, plot_overview, load_image, make_dir
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--img', type=str, default='../data/collie4.jpeg', help='image net file to run attack on')
+    argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
     argparser.add_argument('--x', type=str, default='', help="tensor to calculate expl from")
     argparser.add_argument('--cuda', help='enable GPU mode', action='store_true')
     argparser.add_argument('--output_dir', type=str, default='../output/', help='directory to save results to')

@@ -73,6 +73,9 @@ class ExplainableNet(nn.Module):
         elif type(layer) == (nn.Dropout or nn.Dropout2d):
             new_layer = layer
 
+        elif type(layer) == nn.BatchNorm2d:
+            new_layer = layer
+
         elif type(layer) == nn.ReLU:
             return 0
 
@@ -115,13 +118,14 @@ class ExplainableNet(nn.Module):
             R = self.R
         if index is not None:
             R=self.R.clone()
-            indices = np.ones(1000).astype(bool)
+
+            indices = np.ones(R.shape[1]).astype(bool)
             indices[index] = False
             indices = np.where(indices)[0]
             R[0][indices] = 0
 
         for layer in reversed(self.layers):
-            if type(layer) == nn.Dropout or type(layer) == nn.Dropout2d:  # ignore Dropout layer
+            if type(layer) == nn.Dropout or type(layer) == nn.Dropout2d or type(layer) == nn.BatchNorm2d:  # ignore Dropout layer and BatchNorm
                 continue
             R = layer.analyze(method, R)
 

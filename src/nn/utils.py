@@ -4,6 +4,7 @@ import numpy as np
 import os
 import math
 import torchvision
+import torchvision.transforms as transforms
 from PIL import Image
 
 import matplotlib as mpl
@@ -28,15 +29,30 @@ def plot_overview(images, heatmaps, mean, std,
 
     plot_grid(plots, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
 
+def transformations(dataset):
+    if dataset == 'imagenet':
+        trans = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+        ])
+    elif dataset == 'cifar10':
+        trans = transforms.Compose([transforms.ToTensor()])
+    else:
+        'No such dataset!'
+    return trans
 
-def load_image(data_mean, data_std, device, image_name):
+def load_image(dataset, device, image_name):
     """
     Helper method to load an image into a torch tensor. Includes preprocessing.
     """
     im = Image.open(image_name)
-    x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
-        torchvision.transforms.ToTensor()(
-            torchvision.transforms.CenterCrop(224)(torchvision.transforms.Resize(256)(im))))
+
+    transform = transformations(dataset)
+    # x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
+    #     torchvision.transforms.ToTensor()(
+    #         torchvision.transforms.CenterCrop(224)(torchvision.transforms.Resize(256)(im))))
+    x = transform(im)
     x = x.unsqueeze(0).to(device)
     return x
 
@@ -45,21 +61,24 @@ def clamp(x, mean, std):
     """
     Helper method for clamping the adversarial example in order to ensure that it is a valid image
     """
-    upper = torch.from_numpy(np.array((1.0 - mean) / std)).to(x.device)
-    lower = torch.from_numpy(np.array((0.0 - mean) / std)).to(x.device)
+
+    upper = np.array((1.0 - mean) / std)
+    lower = np.array((0.0 - mean) / std)
 
     if x.shape[1] == 3:  # 3-channel image
         for i in [0, 1, 2]:
-            x[0][i] = torch.clamp(x[0][i], min=lower[i], max=upper[i])
+            x[0][i] = np.clip(x[0][i], a_min=lower[i], a_max=upper[i])
     else:
-        x = torch.clamp(x, min=lower[0], max=upper[0])
+        x = np.clip(x, a_min=lower[0], a_max=upper[0])
     return x
 
 
-def get_expl(model, x, method, desired_index=None):
+def get_expl(model, x, method, mean, std, desired_index=None):
     """
     Helper method to get the heatmap
     """
+    normalize = transforms.Normalize(mean, std)
+    x = normalize(x)
     x.requires_grad = True
     acc, class_idx = model.classify(x)
     if desired_index is None:
@@ -100,7 +119,7 @@ def torch_to_image(tensor, mean=0, std=1):
 
     img = img.contiguous().squeeze().detach().cpu().numpy()
 
-    img = img * std.reshape(1, 1, 3) + mean.reshape(1, 1, 3)
+    # img = img * std.reshape(1, 1, 3) + mean.reshape(1, 1, 3)
     return np.clip(img, 0, 1)
 
 
