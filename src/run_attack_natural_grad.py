@@ -64,7 +64,8 @@ target_expl, _, _ = get_expl(model, x_target, method)
 target_expl = target_expl.detach()
 
 
-pop_size = 64
+pop_size = 32
+max_pop_size = 64
 std = 0.1
 lr = 0.2
 mu = 0.0
@@ -120,6 +121,12 @@ for i in range(args.num_iter):
     V = mu*V + lr * grad_J 
     x_adv.data = x_adv.data + V
     
+    if i % 25 == 0 and pop_size < max_pop_size:
+        noise_list.append(noise_list[-1].clone().detach().requires_grad_())
+        total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
+        pop_size += 1
+
+
     for noise in noise_list[1:]: # don't change the zero tensor
          _ = noise.data.normal_(0,std).requires_grad_()
 
