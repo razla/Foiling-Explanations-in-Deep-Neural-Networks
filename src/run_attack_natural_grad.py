@@ -66,13 +66,11 @@ target_expl = target_expl.detach()
 
 pop_size = 64
 std = 0.1
-sigma = 0.1
 lr = 0.2
 mu = 0.0
 l2_W = 250.0
 l1_W = 250.0
 
-# optimizer = torch.optim.Adam([x_adv], lr=0)
 total_loss_list = torch.Tensor(pop_size).to(device)
 noise_list = [x.clone().detach().data.normal_(0,std).requires_grad_() for _ in range(pop_size)]
 noise_list[0] = x.clone().detach().zero_().requires_grad_()
@@ -87,7 +85,6 @@ for i in range(args.num_iter):
     loss_expl_0 = None
     loss_output_0 = None
     for j, noise in enumerate(noise_list):
-        # optimizer.zero_grad()
         x_adv_temp = x_adv.data + noise.data
         _ = x_adv_temp.requires_grad_()
         # calculate loss
@@ -142,7 +139,7 @@ adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
 # save results
 args.output_dir = args.output_dir[3:]
 output_dir = make_dir(args.output_dir)
-plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}l1_250_l2_250_05_momentum_overview_{args.method}.png")
+plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}l1_250_l2_250_0_momentum_{args.method}.png")
 torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 
