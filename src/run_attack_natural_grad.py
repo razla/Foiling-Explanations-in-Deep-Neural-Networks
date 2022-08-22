@@ -11,6 +11,7 @@ from nn.enums import ExplainingMethod
 from nn.networks import ExplainableNet
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 
+from stats import get_new_std_1d
 
 def get_beta(i, num_iter):
     """
@@ -19,6 +20,13 @@ def get_beta(i, num_iter):
     start_beta, end_beta = 10.0, 100.0
     return start_beta * (end_beta / start_beta) ** (i / num_iter)
 
+def get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean):
+    grad_std = 0
+    for k in range(1,noise_tensor.shape[0]):
+        Xk = noise_tensor[k].detach().cpu().numpy()
+        grad_std += np.mean(normalized_rewards[k].item()* (-1) * ((std**2) - np.square(Xk) + 2*np.dot(Xk, mean) - np.square(mean))/(std**3))
+    grad_std /= (noise_tensor.shape[0]-1)
+    return grad_std
 
 # def main():
 argparser = argparse.ArgumentParser()
@@ -64,16 +72,17 @@ target_expl, _, _ = get_expl(model, x_target, method)
 target_expl = target_expl.detach()
 
 
-pop_size = 32
+pop_size = 64
 max_pop_size = 64
+mean = 0
 std = 0.1
-lr = 0.2
+lr = 0.1
 mu = 0.0
 l2_W = 250.0
 l1_W = 250.0
 
 total_loss_list = torch.Tensor(pop_size).to(device)
-noise_list = [x.clone().detach().data.normal_(0,std).requires_grad_() for _ in range(pop_size)]
+noise_list = [x.clone().detach().data.normal_(mean,std).requires_grad_() for _ in range(pop_size)]
 noise_list[0] = x.clone().detach().zero_().requires_grad_()
 V = x.clone().detach().zero_()
 best_X_adv = deepcopy(x_adv)
@@ -111,15 +120,18 @@ for i in range(args.num_iter):
     normalized_rewards = normalized_rewards.view(-1,1).detach()
     noise_tensor = torch.stack(noise_list).view(len(noise_list),-1).detach()
 
-    grad_log_pi = (noise_tensor - 0)/std
+    grad_log_pi = (noise_tensor - mean)/std
     grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_adv.data.shape)
     grad_J /= len(noise_list)
     grad_J = grad_J.detach()
     lr *= 0.999
     mu *= 0.999
-    std *= 0.9995
     V = mu*V + lr * grad_J 
     x_adv.data = x_adv.data + V
+
+    grad_std = get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean)
+    std += 0.1*grad_std
+    std = max(0.01, std)
     
     if i % 25 == 0 and pop_size < max_pop_size:
         noise_list.append(noise_list[-1].clone().detach().requires_grad_())
@@ -128,7 +140,7 @@ for i in range(args.num_iter):
 
 
     for noise in noise_list[1:]: # don't change the zero tensor
-         _ = noise.data.normal_(0,std).requires_grad_()
+         _ = noise.data.normal_(mean,std).requires_grad_()
 
     # clamp adversarial example
     # Note: x_adv.data returns tensor which shares data with x_adv but requires
@@ -146,7 +158,7 @@ adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
 # save results
 args.output_dir = args.output_dir[3:]
 output_dir = make_dir(args.output_dir)
-plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}l1_250_l2_250_0_momentum_{args.method}.png")
+plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}l1_0_l2_0_momentum_0_{args.method}.png")
 torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 
