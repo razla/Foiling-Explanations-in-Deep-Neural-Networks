@@ -28,6 +28,14 @@ def get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean):
     grad_std /= (noise_tensor.shape[0]-1)
     return grad_std
 
+def get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean):
+    mean_grad = 0
+    for k in range(1,noise_tensor.shape[0]):
+        Xk = noise_tensor[k].detach().cpu().numpy()
+        mean_grad += np.mean(normalized_rewards[k].item() * (Xk - mean)/(std**2))
+    mean_grad /= (noise_tensor.shape[0]-1)
+    return mean_grad
+
 # def main():
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--num_iter', type=int, default=1500, help='number of iterations')
@@ -129,10 +137,17 @@ for i in range(args.num_iter):
     V = mu*V + lr * grad_J 
     x_adv.data = x_adv.data + V
 
+    # updating std
     grad_std = get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean)
     std += 0.1*grad_std
     std = max(0.01, std)
     
+    # updating mean
+    mean_grad = get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean)
+    mean += 0.1*mean_grad
+    print(mean)
+
+
     if i % 25 == 0 and pop_size < max_pop_size:
         noise_list.append(noise_list[-1].clone().detach().requires_grad_())
         total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
