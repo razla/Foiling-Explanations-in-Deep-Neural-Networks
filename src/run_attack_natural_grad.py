@@ -11,7 +11,7 @@ from nn.enums import ExplainingMethod
 from nn.networks import ExplainableNet
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 
-from stats import get_new_std_1d
+from stats import get_std_grad_scalar, get_mean_grad_scalar
 
 def get_beta(i, num_iter):
     """
@@ -20,21 +20,6 @@ def get_beta(i, num_iter):
     start_beta, end_beta = 10.0, 100.0
     return start_beta * (end_beta / start_beta) ** (i / num_iter)
 
-def get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean):
-    grad_std = 0
-    for k in range(1,noise_tensor.shape[0]):
-        Xk = noise_tensor[k].detach().cpu().numpy()
-        grad_std += np.mean(normalized_rewards[k].item()* (-1) * ((std**2) - np.square(Xk) + 2*np.dot(Xk, mean) - np.square(mean))/(std**3))
-    grad_std /= (noise_tensor.shape[0]-1)
-    return grad_std
-
-def get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean):
-    mean_grad = 0
-    for k in range(1,noise_tensor.shape[0]):
-        Xk = noise_tensor[k].detach().cpu().numpy()
-        mean_grad += np.mean(normalized_rewards[k].item() * (Xk - mean)/(std**2))
-    mean_grad /= (noise_tensor.shape[0]-1)
-    return mean_grad
 
 # def main():
 argparser = argparse.ArgumentParser()
