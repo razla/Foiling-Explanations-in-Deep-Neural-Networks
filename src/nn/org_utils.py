@@ -14,8 +14,8 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 
 
-def plot_overview(images, labels, heatmaps, mean, std,
-                  captions=['Target Image', 'Original Image', 'Manipulated Image', 'Target Explanation', 'Original Explanation', 'Manipulated Explanation'],
+def plot_overview(images, labels, losses, heatmaps, mean, std,
+                  captions=['Target', 'Original', 'Manipulated', 'Target', 'Original', 'Manipulated'],
                   filename="overview.png", images_per_row=3):
     """
     Helper method for plotting the result of the attack
@@ -25,7 +25,7 @@ def plot_overview(images, labels, heatmaps, mean, std,
     heatmap_cmap = 'jet' if len(plots[-1].shape) == 3 else 'coolwarm'
     cmaps = [img_cmap] * len(images) + [heatmap_cmap] * len(heatmaps)
 
-    plot_grid(plots, labels, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
+    plot_grid(plots, labels, losses, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
 
 
 def load_image(data_mean, data_std, device, image_name):
@@ -131,7 +131,7 @@ def make_dir(directory_name):
     return directory_name
 
 
-def plot_grid(images, labels, titles=None, images_per_row=3, cmap='gray', norm=mpl.colors.NoNorm(), filename="overview.png"):
+def plot_grid(images, labels, losses, titles=None, images_per_row=3, cmap='gray', norm=mpl.colors.NoNorm(), filename="overview.png"):
     """
     Helper method to plot a grid with matplotlib
     """
@@ -168,8 +168,8 @@ def plot_grid(images, labels, titles=None, images_per_row=3, cmap='gray', norm=m
             else:
                 a_ij.set_title(f'{titles[idx]}')
 
-    plt.subplots_adjust(wspace=0.05, hspace=0.05, left=0, right=1, bottom=0, top=1)
-
+    plt.subplots_adjust(wspace=0.05, hspace=0.2, left=0, right=1, bottom=0, top=1)
+    plt.figtext(0.5, 0.5, f'Input loss (l2): {losses[0]:.6f}, Expl loss (l2): {losses[1]:.6f}', ha="center", fontsize=16, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
     plt.savefig(filename)
     plt.close()
 

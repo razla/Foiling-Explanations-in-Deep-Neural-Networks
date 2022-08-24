@@ -22,8 +22,8 @@ def get_beta(i, n_iter):
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_iter', type=int, default=300, help='number of iterations')
-    argparser.add_argument('--n_pop', type=int, default=200, help='number of individuals sampled from gaussian')
+    argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
+    argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
     argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
     argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
     argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
@@ -36,7 +36,7 @@ def main():
                             help='imagenet file used to generate target expl')
     argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
     argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-    argparser.add_argument('--prefactors', nargs=4, default=[1e12, 1e5, 1e4, 1e2], type=float,
+    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
                             help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
     argparser.add_argument('--method', help='algorithm for expls',
                             choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -100,7 +100,7 @@ def main():
                 loss_output = F.mse_loss(adv_acc, org_acc.detach())
                 loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
                 # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
-                total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output + args.prefactors[2] * loss_diff_l2 # + args.prefactors[3] * loss_diff_l1
+                total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2 # + args.prefactors[3] * loss_diff_l1
                 total_loss_list[j] = total_loss.detach()
                 _ = x_adv_temp.detach()
                 torch.cuda.empty_cache()
@@ -144,11 +144,13 @@ def main():
                     noise_list.append(noise_list[-1].clone().detach().requires_grad_())
                     total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
                     n_pop += 1
-                _, _, adv_idx = get_expl(model, x_adv, method)
+                adv_expl, _, adv_idx = get_expl(model, x_adv, method)
+                input_loss_i = F.mse_loss(x_adv, x.detach())
+                expl_loss_i = F.mse_loss(adv_expl, target_expl)
                 adv_label_name = label_to_name(adv_idx.item())
                 path = os.path.join(args.output_dir, org_label_name, target_label_name)
                 output_dir = make_dir(path)
-                plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name],
+                plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i],
                               [target_expl, org_expl, adv_expl], data_mean, data_std,
                               filename=f"{output_dir}{i}_{args.method}.png")
 
@@ -162,11 +164,12 @@ def main():
 
     # test with original model (with relu activations)
     model.change_beta(None)
-    # adv_expl, adv_acc, class_idx = get_expl(model, x_adv, method)
     adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
     adv_label_name = label_to_name(class_idx.item())
+    input_loss = F.mse_loss(best_X_adv, x.detach())
+    expl_loss = F.mse_loss(adv_expl, target_expl)
     # save results
-    plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
+    plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 if __name__ == "__main__":
