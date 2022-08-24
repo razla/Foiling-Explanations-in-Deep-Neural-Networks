@@ -1,14 +1,13 @@
+import torch.nn.functional as F
+from copy import deepcopy
+import torchvision
 import argparse
 import os.path
-from copy import deepcopy
 import torch
-import torchvision
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
 
-from nn.enums import ExplainingMethod
+from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 from nn.networks import ExplainableNet
-from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir, torch_to_image
+from nn.enums import ExplainingMethod
 
 from utils import load_images, get_mean_std, label_to_name
 
@@ -23,8 +22,8 @@ def get_beta(i, n_iter):
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
-    argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
+    argparser.add_argument('--n_iter', type=int, default=300, help='number of iterations')
+    argparser.add_argument('--n_pop', type=int, default=200, help='number of individuals sampled from gaussian')
     argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
     argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
     argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
@@ -37,7 +36,7 @@ def main():
                             help='imagenet file used to generate target expl')
     argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
     argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
+    argparser.add_argument('--prefactors', nargs=4, default=[1e12, 1e5, 1e4, 1e2], type=float,
                             help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
     argparser.add_argument('--method', help='algorithm for expls',
                             choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -140,24 +139,24 @@ def main():
             # mean += 0.1*mean_grad
             # print(mean)
 
-            if i % 25 == 0 and n_pop < args.max_pop:
-                noise_list.append(noise_list[-1].clone().detach().requires_grad_())
-                total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
-                n_pop += 1
+            if i % 25 == 0:
+                if n_pop < args.max_pop:
+                    noise_list.append(noise_list[-1].clone().detach().requires_grad_())
+                    total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
+                    n_pop += 1
+                _, _, adv_idx = get_expl(model, x_adv, method)
+                adv_label_name = label_to_name(adv_idx.item())
+                path = os.path.join(args.output_dir, org_label_name, target_label_name)
+                output_dir = make_dir(path)
+                plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name],
+                              [target_expl, org_expl, adv_expl], data_mean, data_std,
+                              filename=f"{output_dir}{i}_{args.method}.png")
 
             for noise in noise_list[1:]: # don't change the zero tensor
                  _ = noise.data.normal_(mean,std).requires_grad_()
 
             # clamp adversarial exmaple
             x_adv.data = clamp(x_adv.data, data_mean, data_std)
-
-            if i % 49 == 0:
-                _, _, adv_idx = get_expl(model, x_adv, method)
-                adv_label_name = label_to_name(adv_idx.item())
-                path = os.path.join(args.output_dir, org_label_name, target_label_name)
-                output_dir = make_dir(path)
-                plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [target_expl, org_expl, adv_expl], data_mean, data_std,
-                              filename=f"{output_dir}{i}_{args.method}.png")
 
             print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
