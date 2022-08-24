@@ -1,16 +1,16 @@
 import argparse
+import os.path
 from copy import deepcopy
 import torch
-
 import torchvision
 import torch.nn.functional as F
-import numpy as np
+import matplotlib.pyplot as plt
 
 from nn.enums import ExplainingMethod
 from nn.networks import ExplainableNet
-from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
+from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir, torch_to_image
 
-from utils import load_images, get_mean_std
+from utils import load_images, get_mean_std, label_to_name
 
 from stats import get_std_grad_scalar, get_mean_grad_scalar
 
@@ -35,9 +35,9 @@ def main():
     argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
     argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                             help='imagenet file used to generate target expl')
-    argparser.add_argument('--output_dir', type=str, default='../output/', help='directory to save results to')
+    argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
     argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 250], type=float,
+    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
                             help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
     argparser.add_argument('--method', help='algorithm for expls',
                             choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -74,8 +74,10 @@ def main():
         # produce expls
         org_expl, org_acc, org_idx = get_expl(model, x, method)
         org_expl = org_expl.detach().cpu()
-        target_expl, _, _ = get_expl(model, x_target, method)
+        org_label_name = label_to_name(org_idx.item())
+        target_expl, _, target_idx = get_expl(model, x_target, method)
         target_expl = target_expl.detach()
+        target_label_name = label_to_name(target_idx.item())
 
         total_loss_list = torch.Tensor(n_pop).to(device)
         noise_list = [x.clone().detach().data.normal_(mean,std).requires_grad_() for _ in range(n_pop)]
@@ -148,6 +150,13 @@ def main():
 
             # clamp adversarial exmaple
             x_adv.data = clamp(x_adv.data, data_mean, data_std)
+
+            if i % 49 == 0:
+                path = os.path.join(args.output_dir, org_label_name, target_label_name)
+                output_dir = make_dir(path)
+                plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std,
+                              filename=f"{output_dir}{i}_{args.method}.png")
+
             print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
     # test with original model (with relu activations)
@@ -157,9 +166,7 @@ def main():
 
 
     # save results
-    args.output_dir = args.output_dir[3:]
-    output_dir = make_dir(args.output_dir)
-    plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}l1_0_l2_0_momentum_0_{args.method}.png")
+    plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 
