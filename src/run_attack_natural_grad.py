@@ -90,7 +90,7 @@ best_loss = float('inf')
 for i in range(args.num_iter):
     if args.beta_growth:
         model.change_beta(get_beta(i, args.num_iter))
-    
+
     loss_expl_0 = None
     loss_output_0 = None
     for j, noise in enumerate(noise_list):
@@ -110,7 +110,7 @@ for i in range(args.num_iter):
             loss_expl_0 = loss_expl.item()
             loss_output_0 = loss_output.item()
 
-    if total_loss_list[0] < best_loss: 
+    if total_loss_list[0] < best_loss:
         best_X_adv = deepcopy(x_adv.data).detach()
         best_loss = deepcopy(total_loss_list[0].item())
 
@@ -125,7 +125,7 @@ for i in range(args.num_iter):
     grad_J = grad_J.detach()
     lr *= 0.999
     mu *= 0.999
-    V = mu*V + lr * grad_J 
+    V = mu*V + lr * grad_J
     x_adv.data = x_adv.data + V
 
     # updating std

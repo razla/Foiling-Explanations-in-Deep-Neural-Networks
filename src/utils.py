@@ -1019,6 +1019,7 @@ IMAGENET_2012_LABELS = {
 
 IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
+
 IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 
 def label_to_name(label):
@@ -1049,15 +1050,6 @@ def get_mean_std(dataset):
         mean = np.array([0.4914, 0.4822, 0.4465])
         std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
-
-
-
-def load_specific_image(dir_num = 0, img_num = 0):
-    dir = os.path.join(IMAGENET_PATH, os.listdir(IMAGENET_PATH)[dir_num])
-    dir_path = os.path.join(IMAGENET_PATH, dir)
-    img =os.listdir(dir_path)[img_num]
-    img_path = os.path.join(dir_path, img)
-    return img_path
 
 def load_random_images(n_imgs):
     dirs = np.random.choice(os.listdir(IMAGENET_PATH), n_imgs * 2)

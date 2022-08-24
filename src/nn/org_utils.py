@@ -14,19 +14,18 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 
 
-def plot_overview(images, heatmaps, mean, std,
-                  captions=['Target Image', 'Original Image', 'Manipulated Image', 'Target Explanation', 'Original Explanation', 'Manipulated Explanation'],
+def plot_overview(images, labels, losses, heatmaps, mean, std,
+                  captions=['Target', 'Original', 'Manipulated', 'Target', 'Original', 'Manipulated'],
                   filename="overview.png", images_per_row=3):
     """
     Helper method for plotting the result of the attack
     """
     plots = [torch_to_image(img, mean, std) for img in images] + [heatmap_to_image(heatmap) for heatmap in heatmaps]
-
     img_cmap = 'jet'
     heatmap_cmap = 'jet' if len(plots[-1].shape) == 3 else 'coolwarm'
     cmaps = [img_cmap] * len(images) + [heatmap_cmap] * len(heatmaps)
 
-    plot_grid(plots, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
+    plot_grid(plots, labels, losses, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
 
 
 def load_image(data_mean, data_std, device, image_name):
@@ -132,7 +131,7 @@ def make_dir(directory_name):
     return directory_name
 
 
-def plot_grid(images, titles=None, images_per_row=3, cmap='gray', norm=mpl.colors.NoNorm(), filename="overview.png"):
+def plot_grid(images, labels, losses, titles=None, images_per_row=3, cmap='gray', norm=mpl.colors.NoNorm(), filename="overview.png"):
     """
     Helper method to plot a grid with matplotlib
     """
@@ -148,7 +147,7 @@ def plot_grid(images, titles=None, images_per_row=3, cmap='gray', norm=mpl.color
     fig, axes = plt.subplots(nrows=num_rows, ncols=images_per_row)
 
     fig = plt.gcf()
-    fig.set_size_inches(4 * images_per_row, 5 * int(np.ceil(len(images) / images_per_row)))
+    fig.set_size_inches(4.5 * images_per_row, 5.5 * int(np.ceil(len(images) / images_per_row)))
     for i in range(num_rows):
         for j in range(images_per_row):
 
@@ -164,10 +163,13 @@ def plot_grid(images, titles=None, images_per_row=3, cmap='gray', norm=mpl.color
             if idx >= num_images:
                 break
             a_ij.imshow(images[idx], cmap=cmap[idx], norm=norm, interpolation='nearest')
-            a_ij.set_title(titles[idx])
+            if i == 0:
+                a_ij.set_title(f'{titles[idx]}:\n{labels[j]}')
+            else:
+                a_ij.set_title(f'{titles[idx]}')
 
-    plt.subplots_adjust(wspace=0.05, hspace=0.05, left=0, right=1, bottom=0, top=1)
-
+    plt.subplots_adjust(wspace=0.1, hspace=0.1, left=0, right=1, bottom=0, top=1)
+    plt.figtext(0.5, 0.5, f'Input loss (l2): {losses[0]:.6f}, Expl loss (l2): {losses[1]:.6f}', ha="center", fontsize=16, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
     plt.savefig(filename)
     plt.close()
 
