@@ -23,7 +23,7 @@ def get_beta(i, n_iter):
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_iter', type=int, default=600, help='number of iterations')
+    argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
     argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
     argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
     argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
@@ -152,9 +152,11 @@ def main():
             x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
             if i % 49 == 0:
+                _, _, adv_idx = get_expl(model, x_adv, method)
+                adv_label_name = label_to_name(adv_idx.item())
                 path = os.path.join(args.output_dir, org_label_name, target_label_name)
                 output_dir = make_dir(path)
-                plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std,
+                plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [target_expl, org_expl, adv_expl], data_mean, data_std,
                               filename=f"{output_dir}{i}_{args.method}.png")
 
             print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
@@ -163,10 +165,9 @@ def main():
     model.change_beta(None)
     # adv_expl, adv_acc, class_idx = get_expl(model, x_adv, method)
     adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
-
-
+    adv_label_name = label_to_name(class_idx.item())
     # save results
-    plot_overview([x_target, x, x_adv], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
+    plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 
