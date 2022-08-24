@@ -1017,6 +1017,7 @@ IMAGENET_2012_LABELS = {
 
 IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
+
 IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 
 def label_to_name(label):
@@ -1048,7 +1049,7 @@ def get_mean_std(dataset):
         std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
 
-def load_random_images(n_imgs):
+def load_images(n_imgs):
     dirs = np.random.choice(os.listdir(IMAGENET_PATH), n_imgs * 2)
     base_images = []
     target_images = []
@@ -1061,30 +1062,3 @@ def load_random_images(n_imgs):
         else:
             target_images.append(img_path)
     return base_images, target_images
-
-def parse():
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--num_iter', type=int, default=2000, help='number of iterations')
-    # argparser.add_argument('--img', type=str, default=f'{IMAGENET_PATH}/n01440764/ILSVRC2012_val_00040833.JPEG', help='image net file to run attack on')
-    # argparser.add_argument('--target_img', type=str, default=f'{IMAGENET_PATH}/n01773549/ILSVRC2012_val_00035171.JPEG',
-    #                        help='imagenet file used to generate target expl')
-    argparser.add_argument('--targeted', type=int, default=-1)
-    argparser.add_argument('--imgs', type=int, default=10, help='num of images')
-    argparser.add_argument("--model", choices=['vgg16'], default='vgg16',
-                        help="specific model")
-    argparser.add_argument("--dataset", choices=['imagenet', 'cifar10'], default='imagenet',
-                           help="dataset")
-    argparser.add_argument('--pop', type=int, default=50, help='pop size')
-    argparser.add_argument('--k', type=int, default=25, help='k tournament')
-    argparser.add_argument('--eps', type=float, default=0.05, help='epsilon')
-    argparser.add_argument('--cuda', help='enable GPU mode', action='store_true')
-    argparser.add_argument('--output_dir', type=str, default='../output/', help='directory to save results to')
-    argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-    argparser.add_argument('--prefactors', nargs=3, default=[1e10, 1e4, 1e3], type=float,
-                           help='prefactors of losses (diff expls, class loss)')
-    argparser.add_argument('--method', help='algorithm for expls',
-                           choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
-                                    'pattern_attribution', 'grad_times_input'],
-                           default='lrp')
-    args = argparser.parse_args()
-    return args
