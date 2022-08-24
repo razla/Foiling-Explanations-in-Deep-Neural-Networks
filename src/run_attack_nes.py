@@ -37,7 +37,7 @@ def main():
                             help='imagenet file used to generate target expl')
     argparser.add_argument('--output_dir', type=str, default='../output/', help='directory to save results to')
     argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 250], type=float,
+    argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 250], type=float,
                             help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
     argparser.add_argument('--method', help='algorithm for expls',
                             choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -103,6 +103,7 @@ def main():
                 total_loss_list[j] = total_loss.detach()
                 _ = x_adv_temp.detach()
                 torch.cuda.empty_cache()
+
                 if j == 0:
                     loss_expl_0 = loss_expl.item()
                     loss_output_0 = loss_output.item()
@@ -126,15 +127,16 @@ def main():
             V = mu*V + lr * grad_J
             x_adv.data = x_adv.data + V
 
-            # updating std
-            grad_std = get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean)
-            std += 0.1*grad_std
-            std = max(0.01, std)
+            std *= 0.999
+            # # updating std
+            # grad_std = get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean)
+            # std += 0.1*grad_std
+            # std = max(0.01, std)
 
-            # updating mean
-            mean_grad = get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean)
-            mean += 0.1*mean_grad
-            print(mean)
+            # # updating mean
+            # mean_grad = get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean)
+            # mean += 0.1*mean_grad
+            # print(mean)
 
             if i % 25 == 0 and n_pop < args.max_pop:
                 noise_list.append(noise_list[-1].clone().detach().requires_grad_())
