@@ -11,7 +11,7 @@ from nn.enums import ExplainingMethod
 from nn.networks import ExplainableNet
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 
-from stats import get_std_grad_scalar, get_mean_grad_scalar
+from stats import get_std_grad, get_mean_grad_scalar
 
 def get_beta(i, num_iter):
     """
@@ -67,15 +67,21 @@ target_expl = target_expl.detach()
 
 pop_size = 64
 max_pop_size = 64
-mean = 0
+mean = 0.0
 std = 0.1
 lr = 0.1
 mu = 0.0
 l2_W = 250.0
 l1_W = 250.0
 
+# mean = x.clone().detach().zero_().reshape(1, -1)
+# std = x.clone().detach().zero_().reshape(1, -1) + 0.1 # diagonal covariance
+std = torch.tensor(std)
+mean = torch.tensor(mean)
+is_scalar = True
+
 total_loss_list = torch.Tensor(pop_size).to(device)
-noise_list = [x.clone().detach().data.normal_(mean,std).requires_grad_() for _ in range(pop_size)]
+noise_list = [x.clone().detach().data.normal_(0,0.1).requires_grad_() for _ in range(pop_size)]
 noise_list[0] = x.clone().detach().zero_().requires_grad_()
 V = x.clone().detach().zero_()
 best_X_adv = deepcopy(x_adv)
@@ -123,25 +129,25 @@ for i in range(args.num_iter):
     x_adv.data = x_adv.data + V
 
     # updating std
-    grad_std = get_std_grad_scalar(normalized_rewards, noise_tensor, std, mean)
-    std += 0.1*grad_std
-    std = max(0.01, std)
-    
-    # updating mean
-    mean_grad = get_mean_grad_scalar(normalized_rewards, noise_tensor, std, mean)
-    mean += 0.1*mean_grad
-    print(mean)
-
+    grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
+    std=std.cpu()
+    std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
+    std=std.to(device).float()
+    std = torch.clip(std, min=0.001)
+    print(std)
 
     if i % 25 == 0 and pop_size < max_pop_size:
         noise_list.append(noise_list[-1].clone().detach().requires_grad_())
         total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
         pop_size += 1
 
-
+    
     for noise in noise_list[1:]: # don't change the zero tensor
-         _ = noise.data.normal_(mean,std).requires_grad_()
-
+        if is_scalar:
+            _ = noise.data.normal_(mean,std).requires_grad_()
+        else:
+            noise.data = noise.data.normal_(0,1) * std.reshape(noise.shape) + mean.reshape(noise.shape)
+            _ = noise.requires_grad_()
     # clamp adversarial example
     # Note: x_adv.data returns tensor which shares data with x_adv but requires
     #       no gradient. Since we do not want to differentiate the clamping,
