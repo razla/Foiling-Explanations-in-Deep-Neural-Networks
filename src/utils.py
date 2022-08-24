@@ -9,8 +9,10 @@ import os
 import sys
 sys.path.insert(0, '/home/razla/XAI/')
 sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAI/')
+sys.path.insert(0, '/home/snirvit/AttaXAI')
 
-from explanations_can_be_manipulated.models.vgg import vgg16_bn
+# from explanations_can_be_manipulated.models.vgg import vgg16_bn
+from models.vgg import vgg16_bn
 
 IMAGENET_2012_LABELS = {
     0: 'tench, Tinca tinca',
@@ -1047,6 +1049,15 @@ def get_mean_std(dataset):
         mean = np.array([0.4914, 0.4822, 0.4465])
         std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
+
+
+
+def load_specific_image(dir_num = 0, img_num = 0):
+    dir = os.path.join(IMAGENET_PATH, os.listdir(IMAGENET_PATH)[dir_num])
+    dir_path = os.path.join(IMAGENET_PATH, dir)
+    img =os.listdir(dir_path)[img_num]
+    img_path = os.path.join(dir_path, img)
+    return img_path
 
 def load_random_images(n_imgs):
     dirs = np.random.choice(os.listdir(IMAGENET_PATH), n_imgs * 2)
