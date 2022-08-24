@@ -170,6 +170,5 @@ def main():
     plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
-
 if __name__ == "__main__":
     main()
