@@ -147,7 +147,7 @@ def plot_grid(images, labels, losses, titles=None, images_per_row=3, cmap='gray'
     fig, axes = plt.subplots(nrows=num_rows, ncols=images_per_row)
 
     fig = plt.gcf()
-    fig.set_size_inches(4 * images_per_row, 5 * int(np.ceil(len(images) / images_per_row)))
+    fig.set_size_inches(4.5 * images_per_row, 5.5 * int(np.ceil(len(images) / images_per_row)))
     for i in range(num_rows):
         for j in range(images_per_row):
 
@@ -164,11 +164,11 @@ def plot_grid(images, labels, losses, titles=None, images_per_row=3, cmap='gray'
                 break
             a_ij.imshow(images[idx], cmap=cmap[idx], norm=norm, interpolation='nearest')
             if i == 0:
-                a_ij.set_title(f'{titles[idx]}: {labels[j]}')
+                a_ij.set_title(f'{titles[idx]}:\n{labels[j]}')
             else:
                 a_ij.set_title(f'{titles[idx]}')
 
-    plt.subplots_adjust(wspace=0.05, hspace=0.2, left=0, right=1, bottom=0, top=1)
+    plt.subplots_adjust(wspace=0.1, hspace=0.1, left=0, right=1, bottom=0, top=1)
     plt.figtext(0.5, 0.5, f'Input loss (l2): {losses[0]:.6f}, Expl loss (l2): {losses[1]:.6f}', ha="center", fontsize=16, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
     plt.savefig(filename)
     plt.close()

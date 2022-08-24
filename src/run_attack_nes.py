@@ -22,7 +22,7 @@ def get_beta(i, n_iter):
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
+    argparser.add_argument('--n_iter', type=int, default=1, help='number of iterations')
     argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
     argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
     argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
