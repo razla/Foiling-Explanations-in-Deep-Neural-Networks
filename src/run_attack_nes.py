@@ -100,7 +100,7 @@ def main():
                 loss_expl = F.mse_loss(adv_expl, target_expl)
                 loss_output = F.mse_loss(adv_acc, org_acc.detach())
                 loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
-                loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
+                # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
                 total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output + args.prefactors[2] * loss_diff_l2 # + args.prefactors[3] * loss_diff_l1
                 total_loss_list[j] = total_loss.detach()
                 _ = x_adv_temp.detach()
