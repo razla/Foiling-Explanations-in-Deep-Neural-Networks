@@ -1051,7 +1051,7 @@ def get_mean_std(dataset):
         std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
 
-def load_random_images(n_imgs):
+def load_images(n_imgs):
     dirs = np.random.choice(os.listdir(IMAGENET_PATH), n_imgs * 2)
     base_images = []
     target_images = []
