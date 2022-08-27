@@ -11,7 +11,7 @@ from nn.networks import ExplainableNet
 from nn.enums import ExplainingMethod
 
 from utils import load_images, get_mean_std, label_to_name
-
+from compression import PCA_3_channels
 from stats import get_std_grad
 
 def get_beta(i, n_iter):
@@ -38,6 +38,8 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
+argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=True)
+argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -73,7 +75,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     x = load_image(data_mean, data_std, device, base_image)
     x_target = load_image(data_mean, data_std, device, target_image)
     x_adv = x.clone().detach().requires_grad_()
-
+    x_noise = x.clone().detach().requires_grad_()
     # produce expls
     org_expl, org_acc, org_idx = get_expl(model, x, method)
     org_expl = org_expl.detach().cpu()
@@ -83,11 +85,20 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     target_label_name = label_to_name(target_idx.item())
 
     total_loss_list = torch.Tensor(n_pop).to(device)
-    noise_list = [x.clone().detach().data.normal_(mean,std).requires_grad_() for _ in range(n_pop)]
-    noise_list[0] = x.clone().detach().zero_().requires_grad_()
-    V = x.clone().detach().zero_()
     best_X_adv = deepcopy(x_adv)
     best_loss = float('inf')
+    if args.is_PCA:
+        pca_3 = PCA_3_channels(args.PCA_n_components)
+        x_compressed = pca_3.fit_transform(x.detach().cpu().numpy()[0].T)
+        img_recon = pca_3.inverse_transform()
+        x_recon = torch.tensor(img_recon.T).unsqueeze(0).to(device)
+        x_compressed = torch.tensor(x_compressed.T).unsqueeze(0).to(device)
+        x_adv_comp = x_compressed.clone()
+        x_noise = x_compressed.clone()
+    noise_list = [x_noise.clone().detach().data.normal_(mean.item(), std.item()).requires_grad_() for _ in range(n_pop)]
+    noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
+    V = x_noise.clone().detach().zero_()
+
 
     for i in range(args.n_iter):
         if args.beta_growth:
@@ -96,13 +107,19 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         loss_expl_0 = None
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
-            x_adv_temp = x_adv.data + noise.data
+            if args.is_PCA:
+                x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy())
+                x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
+                x_adv_temp = x_adv.data + x_recon - x_adv_recon
+            else:
+                x_adv_temp = x_adv.data + noise.data
             _ = x_adv_temp.requires_grad_()
+
             # calculate loss
             adv_expl, adv_acc, class_idx = get_expl(model, x_adv_temp, method, desired_index=org_idx)
             loss_expl = F.mse_loss(adv_expl, target_expl)
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
-            loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
+            # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
             # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
             total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2 # + args.prefactors[3] * loss_diff_l1
             total_loss_list[j] = total_loss.detach()
@@ -124,13 +141,20 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         noise_tensor = torch.stack(noise_list).view(len(noise_list),-1).detach()
 
         grad_log_pi = (noise_tensor - mean)/std
-        grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_adv.data.shape)
+        grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
         grad_J /= len(noise_list)
         grad_J = grad_J.detach()
         lr *= 0.9999
         mu *= 0.9999
         V = mu*V + lr * grad_J
-        x_adv.data = x_adv.data + V
+        if args.is_PCA:
+            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T)
+            x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
+            x_adv.data = x_adv.data + x_recon - x_adv_recon
+        else:
+            x_adv.data = x_adv.data + V
+        
+
 
 
 
