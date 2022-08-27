@@ -5,6 +5,7 @@ import torchvision
 import argparse
 import os.path
 import torch
+from scipy.stats import qmc, norm
 
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 from nn.networks import ExplainableNet
@@ -13,6 +14,7 @@ from nn.enums import ExplainingMethod
 from utils import load_images, get_mean_std, label_to_name
 from compression import PCA_3_channels
 from stats import get_std_grad
+
 
 def get_beta(i, n_iter):
     """
@@ -23,7 +25,7 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
+argparser.add_argument('--n_iter', type=int, default=5, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
@@ -40,6 +42,7 @@ argparser.add_argument('--beta_growth', help='enable beta growth', action='store
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
 argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=True)
 argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
+argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -95,8 +98,14 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         x_compressed = torch.tensor(x_compressed.T).unsqueeze(0).to(device)
         x_adv_comp = x_compressed.clone()
         x_noise = x_compressed.clone()
+
     noise_list = [x_noise.clone().detach().data.normal_(mean.item(), std.item()).requires_grad_() for _ in range(n_pop)]
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
+    if args.latin_sampling:
+        sampler = qmc.LatinHypercube(d=np.product(x_noise.shape), optimization=None) # optimization = None is faster, "random-cd"
+        sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
+        for k in range(1, len(noise_list)):
+            noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
 
@@ -140,7 +149,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         normalized_rewards = normalized_rewards.view(-1,1).detach()
         noise_tensor = torch.stack(noise_list).view(len(noise_list),-1).detach()
 
-        grad_log_pi = (noise_tensor - mean)/std
+        grad_log_pi = (noise_tensor.float() - mean)/std
         grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
         grad_J /= len(noise_list)
         grad_J = grad_J.detach()
@@ -179,7 +188,12 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i], 
             [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
 
-        for noise in noise_list[1:]: # don't change the zero tensor
+        if args.latin_sampling:
+            sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
+            for k in range(1, len(noise_list)): # don't change the zero tensor
+                noise_list[k].data = sample[k-1].reshape(x_noise.shape)
+        else:
+            for noise in noise_list[1:]: # don't change the zero tensor
                 _ = noise.data.normal_(mean,std).requires_grad_()
 
         # clamp adversarial exmaple
