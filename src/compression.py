@@ -1,5 +1,6 @@
 from sklearn.decomposition import PCA
 import cv2
+from copy import deepcopy
 
 class PCA_3_channels():
     def __init__(self, n_components) -> None:
@@ -20,3 +21,11 @@ class PCA_3_channels():
     def inverse_transform(self):
         self.reconstructed_img = [pca.inverse_transform(component) for pca, component in zip(self.pca_list, self.component_list)]
         return cv2.merge(self.reconstructed_img)
+    
+    def inverse_transform_noise(self, noise):
+        noised_component = deepcopy(self.component_list)
+        for i in range(len(noised_component)):
+            noised_component[i] += noise[:,:,i,0]
+        reconstructed_noised_img = [pca.inverse_transform(component) for pca, component in zip(self.pca_list, noised_component)]
+        return cv2.merge(reconstructed_noised_img)
+
