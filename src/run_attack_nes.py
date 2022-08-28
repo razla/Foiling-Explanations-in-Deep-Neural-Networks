@@ -25,26 +25,26 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=5, help='number of iterations')
+argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.1, help='learning rate')
-argparser.add_argument('--momentum', type=float, default=0, help='momentum constant')
+argparser.add_argument('--lr', type=float, default=0.2, help='learning rate')
+argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
-argparser.add_argument('--n_imgs', type=int, default=1, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=10, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
-argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=True)
+argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=False)
 argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
-
-argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e3, 1e2], type=float,
+argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
+argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -77,7 +77,10 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     # load images
     x = load_image(data_mean, data_std, device, base_image)
     x_target = load_image(data_mean, data_std, device, target_image)
-    x_adv = x.clone().detach().requires_grad_()
+    if args.synthesize:
+        x_adv = x_target.clone().detach().requires_grad_()
+    else:
+        x_adv = x.clone().detach().requires_grad_()
     x_noise = x.clone().detach().requires_grad_()
     # produce expls
     org_expl, org_acc, org_idx = get_expl(model, x, method)
@@ -119,9 +122,9 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             if args.is_PCA:
                 x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy())
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-                x_adv_temp = x_adv.data + x_recon - x_adv_recon
+                x_adv_temp = x_adv.data + x_recon - x_adv_recon 
             else:
-                x_adv_temp = x_adv.data + noise.data
+                x_adv_temp = x_adv.data + noise.data.float()
             _ = x_adv_temp.requires_grad_()
 
             # calculate loss
@@ -130,7 +133,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
             # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
             # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
-            total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2 # + args.prefactors[3] * loss_diff_l1
+            total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2#  + args.prefactors[3] * loss_diff_l1
             total_loss_list[j] = total_loss.detach()
             _ = x_adv_temp.detach()
             torch.cuda.empty_cache()
@@ -153,8 +156,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
         grad_J /= len(noise_list)
         grad_J = grad_J.detach()
-        lr *= 0.9999
-        mu *= 0.9999
+        lr *= 0.9995
+        mu *= 0.9995
         V = mu*V + lr * grad_J
         if args.is_PCA:
             x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T)
@@ -198,7 +201,6 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
 
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
-
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
 # test with original model (with relu activations)
