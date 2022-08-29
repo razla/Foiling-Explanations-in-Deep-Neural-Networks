@@ -25,13 +25,13 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
+argparser.add_argument('--n_iter', type=int, default=3, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.2, help='learning rate')
-argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
+argparser.add_argument('--momentum', type=float, default=0.9, help='momesntum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
 argparser.add_argument('--n_imgs', type=int, default=10, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
@@ -53,12 +53,21 @@ argparser.add_argument('--method', help='algorithm for expls',
 
 args = argparser.parse_args()
 
+n_iter = args.n_iter
 n_pop = args.n_pop
 mean = torch.tensor(args.mean)
 std = torch.tensor(args.std)
 lr = args.lr
 mu = args.momentum
 is_scalar = args.is_scalar
+experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{lr}_mu_{mu}'
+if args.is_PCA:
+    experiment += f'_PCA_{args.PCA_n_components}'
+if args.latin_sampling:
+    experiment += f'_LS'
+if args.synthesize:
+    experiment += f'_SYN'
+
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -166,8 +175,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         else:
             x_adv.data = x_adv.data + V
         
-
-
+        # clamp adversarial exmaple
+        x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
 
         # updating std
@@ -183,10 +192,10 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
                 total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
                 n_pop += 1
             adv_expl, _, adv_idx = get_expl(model, x_adv, method)
-            input_loss_i = F.mse_loss(x_adv, x.detach())
-            expl_loss_i = F.mse_loss(adv_expl, target_expl)
+            input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
+            expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
             adv_label_name = label_to_name(adv_idx.item())
-            path = os.path.join(args.output_dir, org_label_name, target_label_name)
+            path = os.path.join(args.output_dir,experiment, org_label_name, target_label_name)
             output_dir = make_dir(path)
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i], 
             [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
@@ -199,19 +208,18 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             for noise in noise_list[1:]: # don't change the zero tensor
                 _ = noise.data.normal_(mean,std).requires_grad_()
 
-        # clamp adversarial exmaple
-        x_adv.data = clamp(x_adv.data, data_mean, data_std)
+
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
-# test with original model (with relu activations)
-model.change_beta(None)
-adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
-adv_label_name = label_to_name(class_idx.item())
-input_loss = F.mse_loss(best_X_adv, x.detach())
-expl_loss = F.mse_loss(adv_expl, target_expl)
-# save results
-plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
-torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
+    # test with original model (with relu activations)
+    model.change_beta(None)
+    adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
+    adv_label_name = label_to_name(class_idx.item())
+    input_loss = F.mse_loss(best_X_adv, x.detach()) * args.prefactors[0]
+    expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
+    # save results
+    plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
+    torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
 
 # if __name__ == "__main__":
 #     main()
