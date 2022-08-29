@@ -59,6 +59,7 @@ mean = torch.tensor(args.mean)
 std = torch.tensor(args.std)
 lr = args.lr
 mu = args.momentum
+
 is_scalar = args.is_scalar
 experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{lr}_mu_{mu}'
 if args.is_PCA:
@@ -68,6 +69,8 @@ if args.latin_sampling:
 if args.synthesize:
     experiment += f'_SYN'
 
+seed = 0
+experiment += f'_seed_{seed}'
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,7 +84,7 @@ if method == ExplainingMethod.pattern_attribution:
     model.load_state_dict(torch.load('../models/model_vgg16_pattern_small.pth'), strict=False)
 model = model.eval().to(device)
 
-base_images_paths, target_images_paths = load_images(args.n_imgs)
+base_images_paths, target_images_paths = load_images(args.n_imgs, seed)
 for base_image, target_image in zip(base_images_paths, target_images_paths):
     # load images
     x = load_image(data_mean, data_std, device, base_image)
