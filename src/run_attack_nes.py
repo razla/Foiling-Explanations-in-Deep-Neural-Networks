@@ -25,22 +25,22 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=3, help='number of iterations')
+argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.2, help='learning rate')
-argparser.add_argument('--momentum', type=float, default=0.9, help='momesntum constant')
+argparser.add_argument('--lr', type=float, default=0.05, help='learning rate')
+argparser.add_argument('--momentum', type=float, default=0.2, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
-argparser.add_argument('--n_imgs', type=int, default=10, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
-argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=False)
+argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=True)
 argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
@@ -55,13 +55,9 @@ args = argparser.parse_args()
 
 n_iter = args.n_iter
 n_pop = args.n_pop
-mean = torch.tensor(args.mean)
-std = torch.tensor(args.std)
-lr = args.lr
-mu = args.momentum
 
 is_scalar = args.is_scalar
-experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{lr}_mu_{mu}'
+experiment = f'n_iter_{args.n_iter}_n_pop_{args.n_pop}_lr_{args.lr}_mu_{args.mu}'
 if args.is_PCA:
     experiment += f'_PCA_{args.PCA_n_components}'
 if args.latin_sampling:
@@ -86,6 +82,10 @@ model = model.eval().to(device)
 
 base_images_paths, target_images_paths = load_images(args.n_imgs, seed)
 for base_image, target_image in zip(base_images_paths, target_images_paths):
+    mean = torch.tensor(args.mean)
+    std = torch.tensor(args.std)
+    lr = args.lr
+    mu = args.momentum
     # load images
     x = load_image(data_mean, data_std, device, base_image)
     x_target = load_image(data_mean, data_std, device, target_image)
@@ -181,7 +181,6 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
-
         # updating std
         grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
         std=std.cpu()
@@ -210,8 +209,6 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         else:
             for noise in noise_list[1:]: # don't change the zero tensor
                 _ = noise.data.normal_(mean,std).requires_grad_()
-
-
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
     # test with original model (with relu activations)
