@@ -30,7 +30,7 @@ argparser.add_argument('--n_pop', type=int, default=100, help='number of individ
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.05, help='learning rate')
+argparser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.2, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
 argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
@@ -40,10 +40,11 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
-argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=True)
+argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=False)
 argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
+argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=True)
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
@@ -55,9 +56,10 @@ args = argparser.parse_args()
 
 n_iter = args.n_iter
 n_pop = args.n_pop
+uniPixel = args.uniPixel
 
 is_scalar = args.is_scalar
-experiment = f'n_iter_{args.n_iter}_n_pop_{args.n_pop}_lr_{args.lr}_mu_{args.mu}'
+experiment = f'n_iter_{args.n_iter}_n_pop_{args.n_pop}_lr_{args.lr}_mu_{args.momentum}'
 if args.is_PCA:
     experiment += f'_PCA_{args.PCA_n_components}'
 if args.latin_sampling:
@@ -67,7 +69,11 @@ if args.synthesize:
 
 seed = 0
 experiment += f'_seed_{seed}'
+print(experiment)
+experiment = 'debug'
 
+
+print(experiment)
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 method = getattr(ExplainingMethod, args.method)
@@ -113,12 +119,15 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         x_compressed = torch.tensor(x_compressed.T).unsqueeze(0).to(device)
         x_adv_comp = x_compressed.clone()
         x_noise = x_compressed.clone()
-
+    if uniPixel:
+        x_noise = x_noise[:,0:1,:,:]
     noise_list = [x_noise.clone().detach().data.normal_(mean.item(), std.item()).requires_grad_() for _ in range(n_pop)]
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
     if args.latin_sampling:
-        sampler = qmc.LatinHypercube(d=np.product(x_noise.shape), optimization=None) # optimization = None is faster, "random-cd"
+        sampler = qmc.LatinHypercube(d=np.product(x_noise.shape), optimization=None) # optimization = None is faster, "random-cd" , strength=1, centered=False
         sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
+        # from skopt.sampler import Lhs
+        
         for k in range(1, len(noise_list)):
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
@@ -132,11 +141,17 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
             if args.is_PCA:
-                x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy())
+                x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel)
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-                x_adv_temp = x_adv.data + x_recon - x_adv_recon 
+                # x_adv_temp = x_adv.data + x_recon - x_adv_recon 
+                delta = x_recon - x_adv_recon
+                # delta*=0.1
             else:
-                x_adv_temp = x_adv.data + noise.data.float()
+                # x_adv_temp = x_adv.data + applied_noise.data.float()
+                delta = noise.data.float()
+                if uniPixel:
+                    delta = delta.repeat(1,3,1,1)
+            x_adv_temp = x_adv.data + delta
             _ = x_adv_temp.requires_grad_()
 
             # calculate loss
@@ -172,12 +187,19 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         mu *= 0.9995
         V = mu*V + lr * grad_J
         if args.is_PCA:
-            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T)
+            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
             x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-            x_adv.data = x_adv.data + x_recon - x_adv_recon
+            delta = x_recon - x_adv_recon
+            threshold = torch.quantile(torch.abs(delta), 0.5)
+            delta[torch.abs(delta) < threshold] = 0
+            # delta*=0.1
+            # x_adv.data = x_adv.data + delta
         else:
-            x_adv.data = x_adv.data + V
-        
+            # x_adv.data = x_adv.data + V
+            delta = V
+            if uniPixel:
+                delta = delta.repeat(1,3,1,1)
+        x_adv.data = x_adv.data + delta
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
@@ -223,3 +245,15 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
 
 # if __name__ == "__main__":
 #     main()
+
+
+
+# TODO:
+# 1 pixel
+# ADAM, RMS_PROP - modular
+# PSO + Grad
+# update subset
+# SVD instead of PCA
+# white on general porpuse net\autoencoder and than black
+# orthogonal sampling
+# save loss data
