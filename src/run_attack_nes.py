@@ -5,6 +5,7 @@ import torchvision
 import argparse
 import os.path
 import torch
+from torchmetrics.functional import peak_signal_noise_ratio
 from scipy.stats import qmc, norm
 
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
@@ -29,9 +30,9 @@ argparser.add_argument('--n_iter', type=int, default=500, help='number of iterat
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
-argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.1, help='learning rate')
-argparser.add_argument('--momentum', type=float, default=0.2, help='momentum constant')
+argparser.add_argument('--std', type=float, default=0.02, help='std of the gaussian distribution')
+argparser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
 argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
@@ -44,7 +45,7 @@ argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=False
 argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
-argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=True)
+argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False)
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
@@ -111,6 +112,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     total_loss_list = torch.Tensor(n_pop).to(device)
     best_X_adv = deepcopy(x_adv)
     best_loss = float('inf')
+
     if args.is_PCA:
         pca_3 = PCA_3_channels(args.PCA_n_components)
         x_compressed = pca_3.fit_transform(x.detach().cpu().numpy()[0].T)
@@ -119,8 +121,10 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         x_compressed = torch.tensor(x_compressed.T).unsqueeze(0).to(device)
         x_adv_comp = x_compressed.clone()
         x_noise = x_compressed.clone()
+
     if uniPixel:
         x_noise = x_noise[:,0:1,:,:]
+        V = x_noise.clone().detach().zero_()
     noise_list = [x_noise.clone().detach().data.normal_(mean.item(), std.item()).requires_grad_() for _ in range(n_pop)]
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
     if args.latin_sampling:
@@ -132,6 +136,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
+    optimizer = torch.optim.Adam([x_adv], lr=lr)
 
     for i in range(args.n_iter):
         if args.beta_growth:
@@ -143,11 +148,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             if args.is_PCA:
                 x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel)
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-                # x_adv_temp = x_adv.data + x_recon - x_adv_recon 
                 delta = x_recon - x_adv_recon
-                # delta*=0.1
             else:
-                # x_adv_temp = x_adv.data + applied_noise.data.float()
                 delta = noise.data.float()
                 if uniPixel:
                     delta = delta.repeat(1,3,1,1)
@@ -185,21 +187,27 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         grad_J = grad_J.detach()
         lr *= 0.9995
         mu *= 0.9995
-        V = mu*V + lr * grad_J
-        if args.is_PCA:
-            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
-            x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-            delta = x_recon - x_adv_recon
-            threshold = torch.quantile(torch.abs(delta), 0.5)
-            delta[torch.abs(delta) < threshold] = 0
-            # delta*=0.1
-            # x_adv.data = x_adv.data + delta
-        else:
-            # x_adv.data = x_adv.data + V
-            delta = V
-            if uniPixel:
-                delta = delta.repeat(1,3,1,1)
-        x_adv.data = x_adv.data + delta
+        # V = mu*V - lr * grad_J
+        optimizer.zero_grad()
+        x_adv.grad = grad_J * (-1)
+        optimizer.step()
+
+        # if args.is_PCA:
+        #     x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
+        #     x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
+        #     delta = x_recon - x_adv_recon
+        #     # threshold = torch.quantile(torch.abs(delta), 0.5)
+        #     # delta[torch.abs(delta) < threshold] = 0
+        #     # delta*=0.1
+        #     x_adv.data = x_adv.data - delta
+        # else:
+        #     # x_adv.data = x_adv.data + V
+        #     delta = V
+        #     if uniPixel:
+        #         delta = delta.repeat(1,3,1,1)
+        #     x_adv.data = x_adv.data - delta
+
+        
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
@@ -249,7 +257,6 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
 
 
 # TODO:
-# 1 pixel
 # ADAM, RMS_PROP - modular
 # PSO + Grad
 # update subset
