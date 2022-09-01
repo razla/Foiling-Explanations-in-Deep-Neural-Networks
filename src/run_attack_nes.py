@@ -30,8 +30,8 @@ argparser.add_argument('--n_iter', type=int, default=500, help='number of iterat
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
-argparser.add_argument('--std', type=float, default=0.02, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
+argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
 argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
@@ -46,6 +46,10 @@ argparser.add_argument('--PCA_n_components', help='How many principle components
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False)
+argparser.add_argument('--std_grad_update', help='using MC-FGSM gradient update', type=bool, default=True)
+
+argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False)
+
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
@@ -67,6 +71,9 @@ if args.latin_sampling:
     experiment += f'_LS'
 if args.synthesize:
     experiment += f'_SYN'
+if args.synthesize:
+    experiment += f'_MC_FGSM'
+    
 
 seed = 0
 experiment += f'_seed_{seed}'
@@ -177,13 +184,21 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
 
         # TODO: Change this one
         total_loss_list *= -1 # gradient ascent
+
+
+
         normalized_rewards = (total_loss_list - total_loss_list.mean()) / torch.clip(input=torch.std(total_loss_list), min=1e-5, max=None)
         normalized_rewards = normalized_rewards.view(-1,1).detach()
         noise_tensor = torch.stack(noise_list).view(len(noise_list),-1).detach()
 
         grad_log_pi = (noise_tensor.float() - mean)/std
         grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
-        grad_J /= len(noise_list)
+        if args.MC_FGSM:
+            grad_J /= std * (grad_log_pi * grad_log_pi).sum(axis=0).reshape(grad_J.shape)
+            std *= 0.995
+        else:
+            grad_J /= len(noise_list)
+
         grad_J = grad_J.detach()
         lr *= 0.9995
         mu *= 0.9995
@@ -212,11 +227,12 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
         # updating std
-        grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
-        std=std.cpu()
-        std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
-        std=std.to(device).float()
-        std = torch.clip(std, min=0.0001)
+        if args.std_grad_update:
+            grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
+            std=std.cpu()
+            std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
+            std=std.to(device).float()
+            std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
             if n_pop < args.max_pop:
