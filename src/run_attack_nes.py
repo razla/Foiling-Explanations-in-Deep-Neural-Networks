@@ -143,7 +143,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
-    optimizer = torch.optim.Adam([x_adv], lr=lr)
+    optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
 
     for i in range(args.n_iter):
         if args.beta_growth:
@@ -153,14 +153,16 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
             if args.is_PCA:
-                x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel)
+                # x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel) 
+                x_adv_recon = pca_3.inverse_transform_noise(V.data.T.cpu().numpy() + noise.data.T.cpu().numpy(), uniPixel) # 3 layer update
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
                 delta = x_recon - x_adv_recon
             else:
-                delta = noise.data.float()
+                delta = V.data + noise.data.float()
                 if uniPixel:
                     delta = delta.repeat(1,3,1,1)
-            x_adv_temp = x_adv.data + delta
+            # x_adv_temp = x_adv.data + delta
+            x_adv_temp = x.data + delta # 3 layer update
             _ = x_adv_temp.requires_grad_()
 
             # calculate loss
@@ -177,15 +179,15 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             if j == 0:
                 loss_expl_0 = loss_expl.item()
                 loss_output_0 = loss_output.item()
+                new_x_adv = x_adv_temp.clone()
 
         if total_loss_list[0] < best_loss:
-            best_X_adv = deepcopy(x_adv.data).detach()
+            # best_X_adv = deepcopy(x_adv.data).detach() 
+            best_X_adv = new_x_adv.clone().detach() # 3 layer update
             best_loss = deepcopy(total_loss_list[0].item())
 
         # TODO: Change this one
         total_loss_list *= -1 # gradient ascent
-
-
 
         normalized_rewards = (total_loss_list - total_loss_list.mean()) / torch.clip(input=torch.std(total_loss_list), min=1e-5, max=None)
         normalized_rewards = normalized_rewards.view(-1,1).detach()
@@ -204,25 +206,25 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         mu *= 0.9995
         # V = mu*V - lr * grad_J
         optimizer.zero_grad()
-        x_adv.grad = grad_J * (-1)
+        # x_adv.grad = grad_J * (-1)
+        V.grad = grad_J * (-1) # 3 layer update 
         optimizer.step()
 
-        # if args.is_PCA:
-        #     x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
-        #     x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-        #     delta = x_recon - x_adv_recon
-        #     # threshold = torch.quantile(torch.abs(delta), 0.5)
-        #     # delta[torch.abs(delta) < threshold] = 0
-        #     # delta*=0.1
-        #     x_adv.data = x_adv.data - delta
-        # else:
-        #     # x_adv.data = x_adv.data + V
-        #     delta = V
-        #     if uniPixel:
-        #         delta = delta.repeat(1,3,1,1)
-        #     x_adv.data = x_adv.data - delta
+        if args.is_PCA:
+            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
+            x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
+            delta = x_recon - x_adv_recon
+            # threshold = torch.quantile(torch.abs(delta), 0.5)
+            # delta[torch.abs(delta) < threshold] = 0
+            # delta*=0.1
+            # x_adv.data = x_adv.data + delta # 3 layer update 
+        else:
+            delta = V
+            if uniPixel:
+                delta = delta.repeat(1,3,1,1)
+            # x_adv.data = x_adv.data + delta
+        x_adv.data = x.data + delta # 3 layer update 
 
-        
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
