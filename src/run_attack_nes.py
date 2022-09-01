@@ -49,6 +49,7 @@ argparser.add_argument('--uniPixel', help='treating RGB values as one', type=boo
 argparser.add_argument('--std_grad_update', help='using MC-FGSM gradient update', type=bool, default=True)
 
 argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False)
+argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=0.5)
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -62,9 +63,9 @@ args = argparser.parse_args()
 n_iter = args.n_iter
 n_pop = args.n_pop
 uniPixel = args.uniPixel
-
+max_delta = args.max_delta
 is_scalar = args.is_scalar
-experiment = f'n_iter_{args.n_iter}_n_pop_{args.n_pop}_lr_{args.lr}_mu_{args.momentum}'
+experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{args.lr}_mu_{args.momentum}_max_delta_{max_delta}'
 if args.is_PCA:
     experiment += f'_PCA_{args.PCA_n_components}'
 if args.latin_sampling:
@@ -73,7 +74,9 @@ if args.synthesize:
     experiment += f'_SYN'
 if args.synthesize:
     experiment += f'_MC_FGSM'
-    
+if args.uniPixel:
+    experiment += f'_uniPixel'
+
 
 seed = 0
 experiment += f'_seed_{seed}'
@@ -223,6 +226,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             if uniPixel:
                 delta = delta.repeat(1,3,1,1)
             # x_adv.data = x_adv.data + delta
+        delta[delta < -max_delta] = -max_delta
+        delta[max_delta < delta] = max_delta
         x_adv.data = x.data + delta # 3 layer update 
 
         # clamp adversarial exmaple
