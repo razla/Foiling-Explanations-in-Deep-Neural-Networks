@@ -104,6 +104,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     std = torch.tensor(args.std)
     lr = args.lr
     mu = args.momentum
+    subset_idx_threshold = 0
     # load images
     x = load_image(data_mean, data_std, device, base_image)
     x_target = load_image(data_mean, data_std, device, target_image)
@@ -148,9 +149,9 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     V = x_noise.clone().detach().zero_()
 
     optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
-    scheduler_exp = ExponentialLR(optimizer, gamma=0.9995)
-    scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
-    scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp, scheduler_cyc], milestones=[0])
+    scheduler = ExponentialLR(optimizer, gamma=0.9995)
+    # scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
+    # scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp], milestones=[0])
 
     for i in range(args.n_iter):
         if args.beta_growth:
@@ -208,6 +209,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         else:
             grad_J /= len(noise_list)
         grad_J = grad_J.detach()
+        subset_idx = torch.rand(grad_J.shape) < subset_idx_threshold
+        grad_J[subset_idx] = 0
         # lr *= 0.9995
         # mu *= 0.9995
         # V = mu*V - lr * grad_J
@@ -284,9 +287,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
 
 
 # TODO:
-# add scheduler
 # PSO + Grad
-# update subset
 # SVD instead of PCA
 # white on general porpuse net\autoencoder and than black
 # orthogonal sampling
