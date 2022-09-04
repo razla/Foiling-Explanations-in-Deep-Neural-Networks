@@ -1,15 +1,19 @@
 import numpy as np
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, TruncatedSVD
 import cv2
 from copy import deepcopy
 
-class PCA_3_channels():
-    def __init__(self, n_components) -> None:
+class Compression_3_channels():
+    def __init__(self, n_components, method = 'PCA') -> None:
         self.n_components = n_components
+        if method.lower() == 'svd':
+            self.method = TruncatedSVD
+        else:
+            self.method = PCA
     
     def fit(self, img):
         self.channels = cv2.split(img)
-        self.pca_list = [PCA(n_components=self.n_components).fit(channel) for channel in self.channels]
+        self.pca_list = [self.method(n_components=self.n_components).fit(channel) for channel in self.channels]
         self.component_list = []
     
     def make_components(self):

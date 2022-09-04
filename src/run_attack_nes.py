@@ -14,9 +14,12 @@ from nn.networks import ExplainableNet
 from nn.enums import ExplainingMethod
 
 from utils import load_images, get_mean_std, label_to_name
-from compression import PCA_3_channels
+from compression import Compression_3_channels
 from stats import get_std_grad
 
+
+import warnings
+warnings.filterwarnings("ignore")
 
 def get_beta(i, n_iter):
     """
@@ -42,8 +45,9 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
-argparser.add_argument('--is_PCA', help='applying PCA', type=bool, default=False)
-argparser.add_argument('--PCA_n_components', help='How many principle components', type=int, default=50)
+argparser.add_argument('--to_compress', help='applying compression', type=bool, default=True)
+argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
+argparser.add_argument('--n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False)
@@ -67,8 +71,12 @@ uniPixel = args.uniPixel
 max_delta = args.max_delta
 is_scalar = args.is_scalar
 experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{args.lr}_mu_{args.momentum}_max_delta_{max_delta}'
-if args.is_PCA:
-    experiment += f'_PCA_{args.PCA_n_components}'
+if args.to_compress:
+    if args.compression_method.lower() == 'pca':
+        experiment+='_PCA'
+    else:
+        experiment+='_SVD'
+    experiment += f'_{args.n_components}'
 if args.latin_sampling:
     experiment += f'_LS'
 if args.synthesize:
@@ -125,8 +133,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     best_X_adv = deepcopy(x_adv)
     best_loss = float('inf')
 
-    if args.is_PCA:
-        pca_3 = PCA_3_channels(args.PCA_n_components)
+    if args.to_compress:
+        pca_3 = Compression_3_channels(args.n_components, method=args.compression_method)
         x_compressed = pca_3.fit_transform(x.detach().cpu().numpy()[0].T)
         img_recon = pca_3.inverse_transform()
         x_recon = torch.tensor(img_recon.T).unsqueeze(0).to(device)
@@ -160,7 +168,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         loss_expl_0 = None
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
-            if args.is_PCA:
+            if args.to_compress:
                 # x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel) 
                 x_adv_recon = pca_3.inverse_transform_noise(V.data.T.cpu().numpy() + noise.data.T.cpu().numpy(), uniPixel) # 3 layer update
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
@@ -220,7 +228,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
         optimizer.step()
         print(scheduler.get_last_lr())
         scheduler.step()
-        if args.is_PCA:
+        if args.to_compress:
             x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
             x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
             delta = x_recon - x_adv_recon
