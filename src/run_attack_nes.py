@@ -6,8 +6,9 @@ import argparse
 import os.path
 import torch
 from torch.optim.lr_scheduler import ExponentialLR, CyclicLR, SequentialLR
-from torchmetrics.functional import peak_signal_noise_ratio
+# from torchmetrics.functional import peak_signal_noise_ratio
 from scipy.stats import qmc, norm
+import csv
 
 from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 from nn.networks import ExplainableNet
@@ -16,7 +17,6 @@ from nn.enums import ExplainingMethod
 from utils import load_images, get_mean_std, label_to_name
 from compression import Compression_3_channels
 from stats import get_std_grad
-
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -38,7 +38,7 @@ argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussi
 argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
-argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=7, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
@@ -95,7 +95,8 @@ experiment = 'debug'
 
 print(experiment)
 # options
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cpu'
 method = getattr(ExplainingMethod, args.method)
 
 # load model
@@ -106,8 +107,12 @@ if method == ExplainingMethod.pattern_attribution:
     model.load_state_dict(torch.load('../models/model_vgg16_pattern_small.pth'), strict=False)
 model = model.eval().to(device)
 
+
 base_images_paths, target_images_paths = load_images(args.n_imgs, seed)
-for base_image, target_image in zip(base_images_paths, target_images_paths):
+for index, (base_image, target_image) in enumerate(zip(base_images_paths, target_images_paths)):
+    loss_expl_list = []
+    loss_input_list = []
+    loss_output_list = []
     mean = torch.tensor(args.mean)
     std = torch.tensor(args.std)
     lr = args.lr
@@ -116,6 +121,8 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     # load images
     x = load_image(data_mean, data_std, device, base_image)
     x_target = load_image(data_mean, data_std, device, target_image)
+    if x is None or x_target is None:
+        continue
     if args.synthesize:
         x_adv = x_target.clone().detach().requires_grad_()
     else:
@@ -185,6 +192,16 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
             adv_expl, adv_acc, class_idx = get_expl(model, x_adv_temp, method, desired_index=org_idx)
             loss_expl = F.mse_loss(adv_expl, target_expl)
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
+            loss_input = F.mse_loss(x_adv_temp, x.detach())
+            # x_adv_temp.requires_grad = False
+            # x.requires_grad = False
+
+
+            loss_expl_list.append(loss_expl.item())
+            loss_output_list.append(loss_output.item())
+            loss_input_list.append(loss_input.item())
+
+
             # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
             # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
             total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2#  + args.prefactors[3] * loss_diff_l1
@@ -279,6 +296,11 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
+    with open(f'./stats/{args.dataset}.txt', 'a') as file:
+        file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
+        file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
+        file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
+
     # test with original model (with relu activations)
     model.change_beta(None)
     adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
@@ -288,6 +310,7 @@ for base_image, target_image in zip(base_images_paths, target_images_paths):
     # save results
     plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
+
 
 # if __name__ == "__main__":
 #     main()
