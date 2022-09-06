@@ -36,13 +36,13 @@ def load_image(data_mean, data_std, device, image_name, dataset):
     if torchvision.transforms.ToTensor()(im).shape[0] == 1:
         return None
 
-    if dataset == 'imagenet':
+    if dataset == 'cifar10' or dataset == 'cifar100':
+        x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
+            torchvision.transforms.ToTensor()(im))
+    elif dataset == 'imagenet':
         x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
             torchvision.transforms.ToTensor()(
                 torchvision.transforms.CenterCrop(224)(torchvision.transforms.Resize(256)(im))))
-    elif dataset == 'cifar10':
-        x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
-            torchvision.transforms.ToTensor()(im))
     else:
         raise Exception('No such dataset!')
 

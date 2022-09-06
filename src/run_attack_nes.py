@@ -37,7 +37,8 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='cifar10', help='dataset to execute on')
+argparser.add_argument('--dataset', type=str, default='cifar100', help='dataset to execute on')
+argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=7, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
@@ -45,7 +46,7 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
-argparser.add_argument('--to_compress', help='applying compression', type=bool, default=True)
+argparser.add_argument('--to_compress', help='applying compression', type=bool, default=False)
 argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
 argparser.add_argument('--n_components', help='How many principle components', type=int, default=50)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
@@ -99,14 +100,14 @@ experiment = 'debug'
 
 print(experiment)
 # options
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = 'cpu'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = 'cpu'
 method = getattr(ExplainingMethod, args.method)
 
 # load model
 data_mean, data_std = get_mean_std(args.dataset)
-vgg_model = torchvision.models.vgg16(pretrained=True)
-model = ExplainableNet(vgg_model, data_mean=data_mean, data_std=data_std, beta=1000 if args.beta_growth else None)
+pretrained_model = load_model(args.model, args.dataset, device)
+model = ExplainableNet(pretrained_model, data_mean=data_mean, data_std=data_std, beta=1000 if args.beta_growth else None)
 if method == ExplainingMethod.pattern_attribution:
     model.load_state_dict(torch.load('../models/model_vgg16_pattern_small.pth'), strict=False)
 model = model.eval().to(device)
@@ -167,17 +168,17 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
-    # match opt.lower():
-    #     case 'adam':
-    #         optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
-    #     case 'sgd':
-    #         optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
-    #     case 'rmsprop':
-    #         optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
-    #     case _:
-    #         raise Exception('No such case!')
-    #
-    # scheduler = ExponentialLR(optimizer, gamma=0.995)
+    match opt.lower():
+        case 'adam':
+            optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
+        case 'sgd':
+            optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
+        case 'rmsprop':
+            optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
+        case _:
+            raise Exception('No such case!')
+
+    scheduler = ExponentialLR(optimizer, gamma=0.995)
     # scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
     # scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp], milestones=[0])
 

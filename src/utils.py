@@ -1022,8 +1022,9 @@ IMAGENET_2012_LABELS = {
 IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
 
-IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 CIFAR10_PATH = '/cs_storage/public_datasets/CIFAR10/test'
+CIFAR100_PATH = '/cs_storage/public_datasets/CIFAR100/test/'
+IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 
 def label_to_name(label):
   return IMAGENET_2012_LABELS[label]
@@ -1031,27 +1032,36 @@ def label_to_name(label):
 def name_to_label(name):
   return IMAGENET_2012_LABELS_REVERSE[name]
 
-def random_string():
-    return ''.join(choices(ascii_lowercase, k=3))
-
 def load_model(model_name, dataset, device):
     if dataset == 'cifar10':
         if model_name == 'vgg16':
-            model = vgg16_bn(pretrained=True).to(device).eval()
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True).to(device).eval()
+        else:
+            raise Exception('No such model for cifar10!')
+    elif dataset == 'cifar100':
+        if model_name == 'vgg16':
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True).to(device).eval()
+        else:
+            raise Exception('No such model for cifar10!')
     elif dataset == 'imagenet':
         if model_name == 'vgg16':
-            model = torchvision.models.vgg16(pretrained=True)
+            model = torchvision.models.vgg16(pretrained=True).to(device).eval()
+        else:
+            raise Exception('No such model for imagenet!')
     else:
         raise Exception('No such dataset!')
     return model
 
 def get_mean_std(dataset):
-    if dataset == 'imagenet':
+    if dataset == 'cifar10':
+        mean = np.array([0.4914, 0.4822, 0.4465])
+        std = np.array([0.2023, 0.1994, 0.201])
+    elif dataset == 'cifar100':
+        mean = np.array([0.507, 0.4865, 0.4409])
+        std = np.array([0.2673, 0.2564, 0.2761])
+    elif dataset == 'imagenet':
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
-    elif dataset == 'cifar10':
-        mean = np.array([0.4914, 0.4822, 0.4465])
-        std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
 
 def load_images(n_imgs, dataset, seed):
@@ -1060,6 +1070,8 @@ def load_images(n_imgs, dataset, seed):
         dataset_path = IMAGENET_PATH
     elif dataset == 'cifar10':
         dataset_path = CIFAR10_PATH
+    elif dataset == 'cifar100':
+        dataset_path = CIFAR100_PATH
     dirs = np.random.choice(os.listdir(dataset_path), n_imgs * 2)
     base_images = []
     target_images = []
