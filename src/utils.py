@@ -1023,6 +1023,7 @@ IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
 
 IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
+CIFAR10_PATH = '/cs_storage/public_datasets/CIFAR10/test'
 
 def label_to_name(label):
   return IMAGENET_2012_LABELS[label]
@@ -1053,13 +1054,17 @@ def get_mean_std(dataset):
         std = np.array([0.2471, 0.2435, 0.2616])
     return mean, std
 
-def load_images(n_imgs, seed):
+def load_images(n_imgs, dataset, seed):
     np.random.seed(seed=seed)
-    dirs = np.random.choice(os.listdir(IMAGENET_PATH), n_imgs * 2)
+    if dataset == 'imagenet':
+        dataset_path = IMAGENET_PATH
+    elif dataset == 'cifar10':
+        dataset_path = CIFAR10_PATH
+    dirs = np.random.choice(os.listdir(dataset_path), n_imgs * 2)
     base_images = []
     target_images = []
     for i, dir in enumerate(dirs):
-        dir_path = os.path.join(IMAGENET_PATH, dir)
+        dir_path = os.path.join(dataset_path, dir)
         img = np.random.choice(os.listdir(dir_path))
         img_path = os.path.join(dir_path, img)
         if i % 2 == 0:

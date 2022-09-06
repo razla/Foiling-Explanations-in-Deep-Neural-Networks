@@ -37,7 +37,7 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', help='dataset to execute on')
+argparser.add_argument('--dataset', type=str, default='cifar10', help='dataset to execute on')
 argparser.add_argument('--n_imgs', type=int, default=7, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
@@ -112,7 +112,7 @@ if method == ExplainingMethod.pattern_attribution:
 model = model.eval().to(device)
 
 
-base_images_paths, target_images_paths = load_images(args.n_imgs, seed)
+base_images_paths, target_images_paths = load_images(args.n_imgs, args.dataset, seed)
 for index, (base_image, target_image) in enumerate(zip(base_images_paths, target_images_paths)):
     loss_expl_list = []
     loss_input_list = []
