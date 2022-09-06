@@ -1,5 +1,3 @@
-from string import ascii_lowercase
-from random import choices
 import numpy as np
 import torchvision
 import torch
