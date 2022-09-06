@@ -55,6 +55,7 @@ argparser.add_argument('--std_grad_update', help='using MC-FGSM gradient update'
 
 argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False)
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=0.5)
+argparser.add_argument('--optimizer', help='Adam/SGD/RMSprop', type=str, default='sgd')
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -70,7 +71,8 @@ n_pop = args.n_pop
 uniPixel = args.uniPixel
 max_delta = args.max_delta
 is_scalar = args.is_scalar
-experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{args.lr}_mu_{args.momentum}_max_delta_{max_delta}'
+opt = args.optimizer
+experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}'
 if args.to_compress:
     if args.compression_method.lower() == 'pca':
         experiment+='_PCA'
@@ -85,6 +87,8 @@ if args.synthesize:
     experiment += f'_MC_FGSM'
 if args.uniPixel:
     experiment += f'_uniPixel'
+if opt.lower() in ['sgd', 'rmsprop']:
+    experiment += f'_mu_{args.momentum}'
 
 
 seed = 0
@@ -163,8 +167,15 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
-    optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
-    scheduler = ExponentialLR(optimizer, gamma=0.9995)
+    match opt.lower():
+        case 'adam':
+            optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
+        case 'sgd':
+            optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
+        case 'rmsprop':
+            optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
+
+    scheduler = ExponentialLR(optimizer, gamma=0.995)
     # scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
     # scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp], milestones=[0])
 
@@ -319,7 +330,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
 # TODO:
 # PSO + Grad
-# SVD instead of PCA
 # white on general porpuse net\autoencoder and than black
 # orthogonal sampling
 # save loss data
+# add optimizers to arg parse
