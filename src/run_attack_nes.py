@@ -14,7 +14,7 @@ from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 from nn.networks import ExplainableNet
 from nn.enums import ExplainingMethod
 
-from utils import load_images, get_mean_std, label_to_name
+from utils import load_images, load_model, get_mean_std, label_to_name
 from compression import Compression_3_channels
 from stats import get_std_grad
 
@@ -123,8 +123,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     mu = args.momentum
     subset_idx_threshold = 0
     # load images
-    x = load_image(data_mean, data_std, device, base_image)
-    x_target = load_image(data_mean, data_std, device, target_image)
+    x = load_image(data_mean, data_std, device, base_image, args.dataset)
+    x_target = load_image(data_mean, data_std, device, target_image, args.dataset)
     if x is None or x_target is None:
         continue
     if args.synthesize:
@@ -167,15 +167,17 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
-    match opt.lower():
-        case 'adam':
-            optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
-        case 'sgd':
-            optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
-        case 'rmsprop':
-            optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
-
-    scheduler = ExponentialLR(optimizer, gamma=0.995)
+    # match opt.lower():
+    #     case 'adam':
+    #         optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
+    #     case 'sgd':
+    #         optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
+    #     case 'rmsprop':
+    #         optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
+    #     case _:
+    #         raise Exception('No such case!')
+    #
+    # scheduler = ExponentialLR(optimizer, gamma=0.995)
     # scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
     # scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp], milestones=[0])
 

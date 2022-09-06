@@ -28,16 +28,24 @@ def plot_overview(images, labels, losses, heatmaps, mean, std,
     plot_grid(plots, labels, losses, captions, cmap=cmaps, filename=filename, images_per_row=images_per_row)
 
 
-def load_image(data_mean, data_std, device, image_name):
+def load_image(data_mean, data_std, device, image_name, dataset):
     """
     Helper method to load an image into a torch tensor. Includes preprocessing.
     """
     im = Image.open(image_name)
     if torchvision.transforms.ToTensor()(im).shape[0] == 1:
         return None
-    x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
-        torchvision.transforms.ToTensor()(
-            torchvision.transforms.CenterCrop(224)(torchvision.transforms.Resize(256)(im))))
+
+    if dataset == 'imagenet':
+        x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
+            torchvision.transforms.ToTensor()(
+                torchvision.transforms.CenterCrop(224)(torchvision.transforms.Resize(256)(im))))
+    elif dataset == 'cifar10':
+        x = torchvision.transforms.Normalize(mean=data_mean, std=data_std)(
+            torchvision.transforms.ToTensor()(im))
+    else:
+        raise Exception('No such dataset!')
+
     x = x.unsqueeze(0).to(device)
     return x
 
