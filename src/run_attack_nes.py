@@ -30,9 +30,9 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
-argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
-argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
+argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
+argparser.add_argument('--n_pop', type=int, default=2, help='number of individuals sampled from gaussian')
+argparser.add_argument('--max_pop', type=int, default=2, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
@@ -296,7 +296,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
-    with open(f'./stats/{args.dataset}.txt', 'a') as file:
+    with open(f'{path}/{args.method}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
