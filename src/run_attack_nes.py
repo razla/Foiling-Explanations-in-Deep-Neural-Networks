@@ -169,9 +169,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
     if args.latin_sampling:
         sampler = qmc.LatinHypercube(d=np.product(x_noise.shape), optimization=None) # optimization = None is faster, "random-cd" , strength=1, centered=False
-        sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
-        # from skopt.sampler import Lhs
-        
+        sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)        
         for k in range(1, len(noise_list)):
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
@@ -187,8 +185,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             raise Exception('No such case!')
 
     scheduler = ExponentialLR(optimizer, gamma=0.995)
-    # scheduler_cyc = CyclicLR(optimizer, base_lr=lr, max_lr=0.001, step_size_up=100, mode='triangular2', cycle_momentum=False) # cycle_momentum is bugged
-    # scheduler = SequentialLR(optimizer, schedulers=[scheduler_exp], milestones=[0])
 
     for i in range(args.n_iter):
         if args.beta_growth:
@@ -198,7 +194,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
             if args.to_compress:
-                # x_adv_recon = pca_3.inverse_transform_noise(noise.data.T.cpu().numpy(), uniPixel) 
                 x_adv_recon = pca_3.inverse_transform_noise(V.data.T.cpu().numpy() + noise.data.T.cpu().numpy(), uniPixel) # 3 layer update
                 x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
                 delta = x_recon - x_adv_recon
@@ -206,7 +201,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 delta = V.data + noise.data.float()
                 if uniPixel:
                     delta = delta.repeat(1,3,1,1)
-            # x_adv_temp = x_adv.data + delta
             x_adv_temp = x.data + delta # 3 layer update
             _ = x_adv_temp.requires_grad_()
 
@@ -215,14 +209,10 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             loss_expl = F.mse_loss(adv_expl, target_expl)
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
             loss_input = F.mse_loss(x_adv_temp, x.detach())
-            # x_adv_temp.requires_grad = False
-            # x.requires_grad = False
-
 
             loss_expl_list.append(loss_expl.item())
             loss_output_list.append(loss_output.item())
             loss_input_list.append(loss_input.item())
-
 
             # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
             # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
@@ -237,7 +227,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 new_x_adv = x_adv_temp.clone()
 
         if total_loss_list[0] < best_loss:
-            # best_X_adv = deepcopy(x_adv.data).detach() 
             best_X_adv = new_x_adv.clone().detach() # 3 layer update
             best_loss = deepcopy(total_loss_list[0].item())
 
@@ -257,11 +246,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         grad_J = grad_J.detach()
         subset_idx = torch.rand(grad_J.shape) < subset_idx_threshold
         grad_J[subset_idx] = 0
-        # lr *= 0.9995
-        # mu *= 0.9995
-        # V = mu*V - lr * grad_J
         optimizer.zero_grad()
-        # x_adv.grad = grad_J * (-1)
+
         V.grad = grad_J * (-1) # 3 layer update 
         optimizer.step()
         print(scheduler.get_last_lr())
@@ -270,15 +256,11 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
             x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
             delta = x_recon - x_adv_recon
-            # threshold = torch.quantile(torch.abs(delta), 0.5)
-            # delta[torch.abs(delta) < threshold] = 0
-            # delta*=0.1
-            # x_adv.data = x_adv.data + delta # 3 layer update 
         else:
             delta = V
             if uniPixel:
                 delta = delta.repeat(1,3,1,1)
-            # x_adv.data = x_adv.data + delta
+
         delta[delta < -max_delta] = -max_delta
         delta[max_delta < delta] = max_delta
         x_adv.data = x.data + delta # 3 layer update 
