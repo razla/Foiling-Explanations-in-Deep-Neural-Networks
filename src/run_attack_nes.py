@@ -1,3 +1,4 @@
+from copyreg import pickle
 import numpy as np
 import torch.nn.functional as F
 from copy import deepcopy
@@ -102,14 +103,14 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 
 seed = 0
 experiment += f'_seed_{seed}'
+np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
 print(experiment)
+
 experiment = 'debug'
-
-
 print(experiment)
+
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = 'cpu'
 method = getattr(ExplainingMethod, args.method)
 
 # load model
