@@ -30,14 +30,14 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
-argparser.add_argument('--n_pop', type=int, default=2, help='number of individuals sampled from gaussian')
+argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
+argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
 argparser.add_argument('--max_pop', type=int, default=2, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='cifar100', help='dataset to execute on')
+argparser.add_argument('--dataset', type=str, default='imagenet', help='cifar10/cifar100/imagenet')
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=7, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
@@ -52,11 +52,11 @@ argparser.add_argument('--n_components', help='How many principle components', t
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False)
-argparser.add_argument('--std_grad_update', help='using MC-FGSM gradient update', type=bool, default=True)
-
+argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=bool, default=True)
+argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99)
 argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False)
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=0.5)
-argparser.add_argument('--optimizer', help='Adam/SGD/RMSprop', type=str, default='sgd')
+argparser.add_argument('--optimizer', help='Adam/SGD/RMSprop', type=str, default='adam')
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -73,7 +73,7 @@ uniPixel = args.uniPixel
 max_delta = args.max_delta
 is_scalar = args.is_scalar
 opt = args.optimizer
-experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}'
+experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}'
 if args.to_compress:
     if args.compression_method.lower() == 'pca':
         experiment+='_PCA'
@@ -84,12 +84,20 @@ if args.latin_sampling:
     experiment += f'_LS'
 if args.synthesize:
     experiment += f'_SYN'
-if args.synthesize:
+if args.MC_FGSM:
     experiment += f'_MC_FGSM'
 if args.uniPixel:
     experiment += f'_uniPixel'
 if opt.lower() in ['sgd', 'rmsprop']:
     experiment += f'_mu_{args.momentum}'
+if is_scalar:
+    experiment += f'_scalar_std'
+if args.std_grad_update:
+    experiment += f'_std_grad_update'
+else:
+    experiment += f'_std_exp_update_{args.std_exp_update}'
+
+experiment += f'_prefactors_{str(args.prefactors)}'
 
 
 seed = 0
@@ -244,7 +252,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
         if args.MC_FGSM:
             grad_J /= std * (grad_log_pi * grad_log_pi).sum(axis=0).reshape(grad_J.shape)
-            std *= 0.995
         else:
             grad_J /= len(noise_list)
         grad_J = grad_J.detach()
@@ -286,6 +293,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
             std=std.to(device).float()
             std = torch.clip(std, min=0.0001)
+        else:
+            std *= args.std_exp_update
 
         if i % 25 == 0:
             if n_pop < args.max_pop:
