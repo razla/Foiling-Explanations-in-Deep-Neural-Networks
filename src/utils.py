@@ -10,8 +10,8 @@ sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAITampering/')
 sys.path.insert(0, '/home/snirvit/AttaXAI')
 
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
-# from models.vgg import vgg16_bn
-from AttaXAI.models.vgg import vgg16_bn
+from models.vgg import vgg16_bn
+# from AttaXAI.models.vgg import vgg16_bn
 
 
 IMAGENET_2012_LABELS = {
@@ -1082,3 +1082,20 @@ def load_images(n_imgs, dataset, seed):
         else:
             target_images.append(img_path)
     return base_images, target_images
+
+
+
+
+
+
+
+def get_optimizer(opt, V, lr, mu):
+    match opt.lower():
+        case 'adam':
+            return torch.optim.Adam([V], lr=lr) # 3 layer update
+        case 'sgd':
+            return torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
+        case 'rmsprop':
+            return torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
+        case _:
+            raise Exception('No such case!')

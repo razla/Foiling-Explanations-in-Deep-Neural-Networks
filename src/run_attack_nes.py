@@ -15,7 +15,7 @@ from nn.org_utils import get_expl, plot_overview, clamp, load_image, make_dir
 from nn.networks import ExplainableNet
 from nn.enums import ExplainingMethod
 
-from utils import load_images, load_model, get_mean_std, label_to_name
+from utils import load_images, load_model, get_mean_std, label_to_name, get_optimizer
 from compression import Compression_3_channels
 from stats import get_std_grad
 
@@ -175,15 +175,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
 
-    match opt.lower():
-        case 'adam':
-            optimizer = torch.optim.Adam([V], lr=lr) # 3 layer update
-        case 'sgd':
-            optimizer = torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
-        case 'rmsprop':
-            optimizer = torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
-        case _:
-            raise Exception('No such case!')
+
+    optimizer = get_optimizer(opt, V, lr, mu)
 
     scheduler = ExponentialLR(optimizer, gamma=0.995)
 
@@ -302,7 +295,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
-    with open(f'{path}/{args.method}.txt', 'a') as file:
+    with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
