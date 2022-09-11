@@ -219,10 +219,9 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 loss_expl_0 = loss_expl.item()
                 loss_output_0 = loss_output.item()
                 new_x_adv = x_adv_temp.clone()
-
-        if total_loss_list[0] < best_loss:
-            best_X_adv = new_x_adv.clone().detach() # 3 layer update
-            best_loss = deepcopy(total_loss_list[0].item())
+                if total_loss_list[0] < best_loss:
+                    best_X_adv = new_x_adv.clone().detach() # 3 layer update
+                    best_loss = deepcopy(total_loss_list[0].item())
 
         # TODO: Change this one
         total_loss_list *= -1 # gradient ascent
@@ -263,14 +262,16 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
         # updating std
+
         if args.std_grad_update:
             grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
             std=std.cpu()
             std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
-            std=std.to(device).float()
-            std = torch.clip(std, min=0.0001)
+            std=std.to(device).float() 
         else:
             std *= args.std_exp_update
+            
+        std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
             if n_pop < args.max_pop:
