@@ -33,14 +33,14 @@ def get_beta(i, n_iter):
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
-argparser.add_argument('--max_pop', type=int, default=2, help='maximum size of population')
+argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.025, help='learning rate')
+argparser.add_argument('--lr', type=float, default=0.0125, help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', help='cifar10/cifar100/imagenet')
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=7, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
@@ -106,8 +106,8 @@ experiment += f'_seed_{seed}'
 np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
 print(experiment)
 
-experiment = 'debug'
-print(experiment)
+# experiment = 'debug'
+# print(experiment)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -233,7 +233,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         grad_log_pi = (noise_tensor.float() - mean)/std
         grad_J = torch.matmul(normalized_rewards.T, grad_log_pi).view(x_noise.shape)
         if args.MC_FGSM:
-            grad_J /= std * (grad_log_pi * grad_log_pi).sum(axis=0).reshape(grad_J.shape)
+            grad_J /= std * (grad_log_pi * grad_log_pi).sum(axis=0).view(grad_J.shape)
         else:
             grad_J /= len(noise_list)
         grad_J = grad_J.detach()
@@ -270,7 +270,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             std=std.to(device).float() 
         else:
             std *= args.std_exp_update
-            
+
         std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
