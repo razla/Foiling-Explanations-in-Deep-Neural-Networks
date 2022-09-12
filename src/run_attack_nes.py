@@ -32,32 +32,33 @@ def get_beta(i, n_iter):
 # def main():
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
-argparser.add_argument('--n_pop', type=int, default=100, help='number of individuals sampled from gaussian')
-argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
+argparser.add_argument('--n_pop', type=int, default=100, choices=[50, 100, 200], help='number of individuals sampled from gaussian')
+# argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.0125, help='learning rate')
+argparser.add_argument('--lr', type=float, default=0.0125,choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', help='cifar10/cifar100/imagenet')
+argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=20, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True)
+argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True) #later
 argparser.add_argument('--to_compress', help='applying compression', type=bool, default=False)
 argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
-argparser.add_argument('--n_components', help='How many principle components', type=int, default=50)
+argparser.add_argument('--n_components', help='How many principle components',choices=[175], type=int, default=150)
 argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
-argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False)
+argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False) #later
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=bool, default=True)
-argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99)
-argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False)
-argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=0.5)
-argparser.add_argument('--optimizer', help='Adam/SGD/RMSprop', type=str, default='adam')
+argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
+argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False) # later
+argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
+argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
+argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
@@ -73,8 +74,9 @@ n_pop = args.n_pop
 uniPixel = args.uniPixel
 max_delta = args.max_delta
 is_scalar = args.is_scalar
+w_decay = args.weight_decay
 opt = args.optimizer
-experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}'
+experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}_w_decay_{w_decay}'
 if args.to_compress:
     if args.compression_method.lower() == 'pca':
         experiment+='_PCA'
@@ -176,7 +178,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     V = x_noise.clone().detach().zero_()
 
 
-    optimizer = get_optimizer(opt, V, lr, mu)
+    optimizer = get_optimizer(opt, V, lr, mu, w_decay)
 
     scheduler = ExponentialLR(optimizer, gamma=0.995)
 
@@ -321,5 +323,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 # PSO + Grad
 # white on general porpuse net\autoencoder and than black
 # orthogonal sampling
-# save loss data
-# add optimizers to arg parse
+# choose hyper parameter search boundrys
+# add losses to hyper parameters
+# distance from original image
