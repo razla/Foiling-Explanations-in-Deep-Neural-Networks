@@ -1089,13 +1089,13 @@ def load_images(n_imgs, dataset, seed):
 
 
 
-def get_optimizer(opt, V, lr, mu):
+def get_optimizer(opt, V, lr, mu, weight_decay):
     match opt.lower():
         case 'adam':
-            return torch.optim.Adam([V], lr=lr) # 3 layer update
+            return torch.optim.Adam([V], lr=lr, weight_decay = weight_decay) # 3 layer update
         case 'sgd':
-            return torch.optim.SGD([V], lr=lr, momentum = mu) # 3 layer update
+            return torch.optim.SGD([V], lr=lr, momentum = mu, weight_decay = weight_decay) # 3 layer update
         case 'rmsprop':
-            return torch.optim.RMSprop([V], lr=lr, momentum = mu) # 3 layer update
+            return torch.optim.RMSprop([V], lr=lr, momentum = mu, weight_decay = weight_decay) # 3 layer update
         case _:
             raise Exception('No such case!')
