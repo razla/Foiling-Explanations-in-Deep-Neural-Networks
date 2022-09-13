@@ -1,3 +1,6 @@
+
+import sys
+print(sys.prefix)
 from copyreg import pickle
 import numpy as np
 import torch.nn.functional as F
@@ -46,16 +49,16 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
                         help='imagenet file used to generate target expl')
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
-argparser.add_argument('--is_scalar', help='is std a scalar', type=bool, default=True) #later
-argparser.add_argument('--to_compress', help='applying compression', type=bool, default=False)
+argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=[0,1], default=1) #later
+argparser.add_argument('--to_compress', help='applying compression', type=int, choices=[0,1], default=0)
 argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
 argparser.add_argument('--n_components', help='How many principle components',choices=[175], type=int, default=150)
-argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=bool, default=True)
-argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=bool, default=False)
-argparser.add_argument('--uniPixel', help='treating RGB values as one', type=bool, default=False) #later
-argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=bool, default=True)
+argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=int, choices=[0,1], default=1)
+argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=int, choices=[0,1], default=0)
+argparser.add_argument('--uniPixel', help='treating RGB values as one', type=int, choices=[0,1], default=0) #later
+argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
-argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=bool, default=False) # later
+argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=0) # later
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
 argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
@@ -68,6 +71,9 @@ argparser.add_argument('--method', help='algorithm for expls',
                         default='lrp')
 
 args = argparser.parse_args()
+
+
+print(f'args.to_compress: {args.to_compress}', flush=True)
 
 n_iter = args.n_iter
 n_pop = args.n_pop
@@ -106,7 +112,7 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 seed = 0
 experiment += f'_seed_{seed}'
 np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
-print(experiment)
+print(experiment, flush=True)
 
 # experiment = 'debug'
 # print(experiment)
@@ -276,10 +282,10 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
-            if n_pop < args.max_pop:
-                noise_list.append(noise_list[-1].clone().detach().requires_grad_())
-                total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
-                n_pop += 1
+            # if n_pop < args.max_pop:
+            #     noise_list.append(noise_list[-1].clone().detach().requires_grad_())
+            #     total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
+            #     n_pop += 1
             adv_expl, _, adv_idx = get_expl(model, x_adv, method)
             input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
             expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
