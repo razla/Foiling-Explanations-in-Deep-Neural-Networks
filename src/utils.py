@@ -10,7 +10,7 @@ sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAITampering/')
 sys.path.insert(0, '/home/snirvit/AttaXAI')
 
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
-from models.vgg import vgg16_bn
+from AttaXAI.models.vgg import vgg16_bn
 # from AttaXAI.models.vgg import vgg16_bn
 
 
