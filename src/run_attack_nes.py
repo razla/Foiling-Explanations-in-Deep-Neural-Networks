@@ -126,7 +126,7 @@ data_mean, data_std = get_mean_std(args.dataset)
 pretrained_model = load_model(args.model, args.dataset, device)
 model = ExplainableNet(pretrained_model, data_mean=data_mean, data_std=data_std, beta=1000 if args.beta_growth else None)
 if method == ExplainingMethod.pattern_attribution:
-    model.load_state_dict(torch.load('../models/model_vgg16_pattern_small.pth'), strict=False)
+    model.load_state_dict(torch.load('/cs_storage/public_datasets/model_vgg16_pattern_small.pth'), strict=False)
 model = model.eval().to(device)
 
 
