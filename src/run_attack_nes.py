@@ -41,7 +41,7 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125,choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet'], help='') #later 'cifar100' 'cifar10'
+argparser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
@@ -121,6 +121,8 @@ print(experiment, flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 method = getattr(ExplainingMethod, args.method)
 
+print(device)
+
 # load model
 data_mean, data_std = get_mean_std(args.dataset)
 pretrained_model = load_model(args.model, args.dataset, device)
@@ -153,10 +155,11 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     # produce expls
     org_expl, org_acc, org_idx = get_expl(model, x, method)
     org_expl = org_expl.detach().cpu()
-    org_label_name = label_to_name(org_idx.item())
+    org_label_name = label_to_name(org_idx.item(), args.dataset)
+    print(f'ORG LABEL: {org_label_name}')
     target_expl, _, target_idx = get_expl(model, x_target, method)
     target_expl = target_expl.detach()
-    target_label_name = label_to_name(target_idx.item())
+    target_label_name = label_to_name(target_idx.item(), args.dataset)
 
     total_loss_list = torch.Tensor(n_pop).to(device)
     best_X_adv = deepcopy(x_adv)
@@ -289,7 +292,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             adv_expl, _, adv_idx = get_expl(model, x_adv, method)
             input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
             expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
-            adv_label_name = label_to_name(adv_idx.item())
+            adv_label_name = label_to_name(adv_idx.item(), args.dataset)
             path = os.path.join(args.output_dir,experiment, org_label_name, target_label_name)
             output_dir = make_dir(path)
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i], 
@@ -312,7 +315,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     # test with original model (with relu activations)
     model.change_beta(None)
     adv_expl, adv_acc, class_idx = get_expl(model, best_X_adv, method)
-    adv_label_name = label_to_name(class_idx.item())
+    adv_label_name = label_to_name(class_idx.item(), args.dataset)
     input_loss = F.mse_loss(best_X_adv, x.detach()) * args.prefactors[0]
     expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
     # save results
