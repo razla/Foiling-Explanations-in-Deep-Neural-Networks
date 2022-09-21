@@ -13,6 +13,18 @@ sys.path.insert(0, '/home/snirvit/AttaXAI')
 from AttaXAI.models.vgg import vgg16_bn
 # from AttaXAI.models.vgg import vgg16_bn
 
+CIFAR10_LABELS = {
+    0: 'airplane',
+    1: 'automobile',
+    2: 'bird',
+    3: 'cat',
+    4: 'deer',
+    5: 'dog',
+    6: 'frog',
+    7: 'horse',
+    8: 'ship',
+    9: 'truck'
+}
 
 IMAGENET_2012_LABELS = {
     0: 'tench, Tinca tinca',
@@ -1020,15 +1032,27 @@ IMAGENET_2012_LABELS = {
 IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
 
+CIFAR10_LABELS_REVERSE = {v: k for k, v in six.iteritems(CIFAR10_LABELS)}
+
 CIFAR10_PATH = '/cs_storage/public_datasets/CIFAR10/test'
 CIFAR100_PATH = '/cs_storage/public_datasets/CIFAR100/test/'
 IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 
-def label_to_name(label):
-  return IMAGENET_2012_LABELS[label]
+def label_to_name(label, dataset):
+    if dataset == 'imagenet':
+        return IMAGENET_2012_LABELS[label]
+    elif dataset == 'cifar10':
+        return CIFAR10_LABELS[label]
+    else:
+        raise Exception('No such dataset!')
 
-def name_to_label(name):
-  return IMAGENET_2012_LABELS_REVERSE[name]
+def name_to_label(name, dataset):
+    if dataset == 'imagenet':
+        return IMAGENET_2012_LABELS_REVERSE[name]
+    elif dataset == 'cifar10':
+        return CIFAR10_LABELS_REVERSE[name]
+    else:
+        raise Exception('No such dataset!')
 
 def load_model(model_name, dataset, device):
     if dataset == 'cifar10':
