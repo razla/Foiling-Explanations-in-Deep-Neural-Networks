@@ -9,6 +9,7 @@ import os
 from captum.attr import IntegratedGradients
 from captum.attr import GuidedBackprop
 from captum.attr import InputXGradient
+from captum.attr import DeepLift
 from captum.attr import Saliency
 from captum.attr import LRP
 
@@ -1267,6 +1268,9 @@ def get_expl(model, model_name, x, method, desired_idx=None):
         xai = InputXGradient(model)
     elif method == 'saliency':
         xai = Saliency(model)
+    elif method == 'deep_lift':
+        model = convert_relus(model, model_name)
+        xai = DeepLift(model)
     else:
         raise Exception('No such xai!')
 
