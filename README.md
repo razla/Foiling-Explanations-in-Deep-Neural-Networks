@@ -1,7 +1,3 @@
-Reference implementation for 'Explanations can be manipulated and geometry is to blame'.
+Black box attacks on XAI methods using different evolutionary methods.
 
-To download patterns for pattern attribution, please use the following link:
-
-https://drive.google.com/open?id=1RdvAiUZgfhSE8sVF2JOyURpnk1HQ_hZk
-
-Copy the downloaded file in the models subdirectory. 
+This repository was created by Snir Vitrack Tamam and Raz Lapid.
