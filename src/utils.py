@@ -1239,8 +1239,6 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
         case _:
             raise Exception('No such case!')
 
-# choices=['lrp', 'guided_backprop', 'integrated_grad', 'grad_times_input'],
-
 def convert_relus(model, model_name):
     if model_name == 'vgg':
         relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
