@@ -1129,15 +1129,10 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
 # choices=['lrp', 'guided_backprop', 'integrated_grad', 'grad_times_input'],
 
 def convert_relus(model):
-    for i, feature in enumerate(model.features):
-        if type(feature) == torch.nn.ReLU:
-            feature = torch.nn.ReLU(inplace=False)
-            model.features[i] = feature
+    relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
 
-    for j, feature in enumerate(model.classifier):
-        if type(feature) == torch.nn.ReLU:
-            feature = torch.nn.ReLU(inplace=False)
-            model.classifier[j] = feature
+    for *parent, k in relu_lst:
+        model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
 
     return model
 def get_expl(model, x, method, desired_idx=None):
