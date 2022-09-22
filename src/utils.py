@@ -1266,7 +1266,7 @@ def get_expl(model, model_name, x, method, desired_idx=None):
         xai = IntegratedGradients(model)
     elif method == 'grad_times_input':
         xai = InputXGradient(model)
-    elif method == 'saliency':
+    elif method == 'gradient':
         xai = Saliency(model)
     elif method == 'deep_lift':
         model = convert_relus(model, model_name)

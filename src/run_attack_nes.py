@@ -34,14 +34,14 @@ def get_beta(i, n_iter):
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=500, help='number of iterations')
-argparser.add_argument('--n_pop', type=int, default=100, choices=[50, 100, 200], help='number of individuals sampled from gaussian')
+argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
+argparser.add_argument('--n_pop', type=int, default=2, choices=[50, 100, 200], help='number of individuals sampled from gaussian')
 # argparser.add_argument('--max_pop', type=int, default=100, help='maximum size of population')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125,choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10'], help='') #later 'cifar100' 'cifar10'
+argparser.add_argument('--dataset', type=str, default='cifar10', choices=['imagenet', 'cifar10'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
@@ -53,7 +53,7 @@ argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=
 argparser.add_argument('--to_compress', help='applying compression', type=int, choices=[0,1], default=0)
 argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
 argparser.add_argument('--n_components', help='How many principle components',choices=[175], type=int, default=150)
-argparser.add_argument('--latin_sampling', help='sample with latin hyperbube', type=int, choices=[0,1], default=1)
+argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
 argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=int, choices=[0,1], default=0)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=int, choices=[0,1], default=0) #later
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
@@ -114,14 +114,12 @@ experiment += f'_seed_{seed}'
 np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
 print(experiment, flush=True)
 
-# experiment = 'debug'
-# print(experiment)
+experiment = 'debug'
+print(experiment)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 method = getattr(ExplainingMethod, args.method)
-
-print(device)
 
 # load model
 data_mean, data_std = get_mean_std(args.dataset)
@@ -156,10 +154,12 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     org_expl, org_acc, org_idx = get_expl(model, x, method)
     org_expl = org_expl.detach().cpu()
     org_label_name = label_to_name(org_idx.item(), args.dataset)
-    print(f'ORG LABEL: {org_label_name}')
     target_expl, _, target_idx = get_expl(model, x_target, method)
     target_expl = target_expl.detach()
     target_label_name = label_to_name(target_idx.item(), args.dataset)
+
+    print(org_label_name, base_image)
+    print(target_label_name, target_image)
 
     total_loss_list = torch.Tensor(n_pop).to(device)
     best_X_adv = deepcopy(x_adv)
@@ -181,7 +181,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
     if args.latin_sampling:
         sampler = qmc.LatinHypercube(d=np.product(x_noise.shape), optimization=None) # optimization = None is faster, "random-cd" , strength=1, centered=False
-        sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)        
+        sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
         for k in range(1, len(noise_list)):
             noise_list[k].data = sample[k-1].reshape(x_noise.shape)
     V = x_noise.clone().detach().zero_()
@@ -252,7 +252,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         grad_J[subset_idx] = 0
         optimizer.zero_grad()
 
-        V.grad = grad_J * (-1) # 3 layer update 
+        V.grad = grad_J * (-1) # 3 layer update
         optimizer.step()
         print(scheduler.get_last_lr())
         scheduler.step()
@@ -267,7 +267,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
         delta[delta < -max_delta] = -max_delta
         delta[max_delta < delta] = max_delta
-        x_adv.data = x.data + delta # 3 layer update 
+        x_adv.data = x.data + delta # 3 layer update
 
         # clamp adversarial exmaple
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
@@ -278,7 +278,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
             std=std.cpu()
             std += np.clip(grad_std, a_min=-0.01, a_max=0.01)
-            std=std.to(device).float() 
+            std=std.to(device).float()
         else:
             std *= args.std_exp_update
 
@@ -295,7 +295,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             adv_label_name = label_to_name(adv_idx.item(), args.dataset)
             path = os.path.join(args.output_dir,experiment, org_label_name, target_label_name)
             output_dir = make_dir(path)
-            plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i], 
+            plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i],
             [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
 
         if args.latin_sampling:
