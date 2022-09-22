@@ -54,8 +54,8 @@ argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], t
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
-                                'pattern_attribution', 'grad_times_input'],
-                        default='integrated_grad')
+                                'pattern_attribution', 'grad_times_input', 'saliency'],
+                        default='saliency')
 
 args = argparser.parse_args()
 

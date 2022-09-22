@@ -7,6 +7,10 @@ import six
 import os
 
 from captum.attr import IntegratedGradients
+from captum.attr import GuidedBackprop
+from captum.attr import InputXGradient
+from captum.attr import Saliency
+from captum.attr import LRP
 
 import sys
 sys.path.insert(0, '/home/razla/XAITampering/')
@@ -1122,14 +1126,36 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
         case _:
             raise Exception('No such case!')
 
+# choices=['lrp', 'guided_backprop', 'integrated_grad', 'grad_times_input'],
+
+def convert_relus(model):
+    for i, feature in enumerate(model.features):
+        if type(feature) == torch.nn.ReLU:
+            feature = torch.nn.ReLU(inplace=False)
+            model.features[i] = feature
+
+    for j, feature in enumerate(model.classifier):
+        if type(feature) == torch.nn.ReLU:
+            feature = torch.nn.ReLU(inplace=False)
+            model.classifier[j] = feature
+
+    return model
 def get_expl(model, x, method, desired_idx=None):
-    if method == 'integrated_grad':
+    if method == 'lrp':
+        model = convert_relus(model)
+        xai = LRP(model)
+    elif method == 'guided_backprop':
+        model = convert_relus(model)
+        xai = GuidedBackprop(model)
+    elif method == 'integrated_grad':
         xai = IntegratedGradients(model)
+    elif method == 'grad_times_input':
+        xai = InputXGradient(model)
+    elif method == 'saliency':
+        xai = Saliency(model)
     else:
         raise Exception('No such xai!')
 
-    # mean, std = get_mean_std(dataset)
-    # n_x = transforms.Normalize(mean, std)(x)
     outputs = model(x)
     acc, class_idx = F.softmax(outputs, dim=1), torch.max(outputs, 1)[1]
     if desired_idx is None:
