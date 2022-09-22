@@ -1170,18 +1170,24 @@ def name_to_label(name, dataset):
 
 def load_model(model_name, dataset, device):
     if dataset == 'cifar10':
-        if model_name == 'vgg16':
+        if model_name == 'vgg':
             model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True).to(device).eval()
+        elif model_name == 'resnet':
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for cifar10!')
     elif dataset == 'cifar100':
-        if model_name == 'vgg16':
+        if model_name == 'vgg':
             model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True).to(device).eval()
+        elif model_name == 'resnet':
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for cifar10!')
     elif dataset == 'imagenet':
-        if model_name == 'vgg16':
+        if model_name == 'vgg':
             model = torchvision.models.vgg16(pretrained=True).to(device).eval()
+        elif model_name == 'resnet':
+            model = torchvision.models.resnet34(pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for imagenet!')
     else:
@@ -1234,19 +1240,26 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
 
 # choices=['lrp', 'guided_backprop', 'integrated_grad', 'grad_times_input'],
 
-def convert_relus(model):
-    relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
-
-    for *parent, k in relu_lst:
-        model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
+def convert_relus(model, model_name):
+    if model_name == 'vgg':
+        relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
+        for *parent, k in relu_lst:
+            model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
+    elif model_name == 'resnet':
+        for name, module in model.named_modules():
+            if hasattr(module, 'relu'):
+                module.relu = torch.nn.ReLU(inplace=False)
+    else:
+        raise Exception('No such model!')
 
     return model
-def get_expl(model, x, method, desired_idx=None):
+
+def get_expl(model, model_name, x, method, desired_idx=None):
     if method == 'lrp':
-        model = convert_relus(model)
+        model = convert_relus(model, model_name)
         xai = LRP(model)
     elif method == 'guided_backprop':
-        model = convert_relus(model)
+        model = convert_relus(model, model_name)
         xai = GuidedBackprop(model)
     elif method == 'integrated_grad':
         xai = IntegratedGradients(model)
