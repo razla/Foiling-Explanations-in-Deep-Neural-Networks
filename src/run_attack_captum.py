@@ -20,13 +20,6 @@ from stats import get_std_grad
 import warnings
 warnings.filterwarnings("ignore")
 
-def get_beta(i, n_iter):
-    """
-    Helper method for beta growth
-    """
-    start_beta, end_beta = 10.0, 100.0
-    return start_beta * (end_beta / start_beta) ** (i / n_iter)
-
 # def main():
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
@@ -65,7 +58,6 @@ argparser.add_argument('--method', help='algorithm for expls',
                         default='integrated_grad')
 
 args = argparser.parse_args()
-
 
 print(f'args.to_compress: {args.to_compress}', flush=True)
 
@@ -113,7 +105,6 @@ print(experiment)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 # load model
 data_mean, data_std = get_mean_std(args.dataset)
@@ -239,7 +230,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         grad_J[subset_idx] = 0
         optimizer.zero_grad()
 
-        V.grad = grad_J * (-1) # 3 layer update
+        V.grad = grad_J * (-1)
         optimizer.step()
         print(scheduler.get_last_lr())
         scheduler.step()
@@ -260,7 +251,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         x_adv.data = clamp(x_adv.data, data_mean, data_std)
 
         # updating std
-
         if args.std_grad_update:
             grad_std = get_std_grad(normalized_rewards, noise_tensor, std.cpu().numpy(), mean.cpu().numpy(), is_scalar)
             std=std.cpu()
@@ -272,10 +262,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
-            # if n_pop < args.max_pop:
-            #     noise_list.append(noise_list[-1].clone().detach().requires_grad_())
-            #     total_loss_list = torch.cat([total_loss_list, torch.tensor([0]).to(device)])
-            #     n_pop += 1
             adv_expl, _, adv_idx = get_expl(model, x_adv, args.method)
             input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
             expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
