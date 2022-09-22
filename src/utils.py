@@ -1,8 +1,12 @@
+import torchvision.transforms as transforms
+import torch.nn.functional as F
 import numpy as np
 import torchvision
 import torch
 import six
 import os
+
+from captum.attr import IntegratedGradients
 
 import sys
 sys.path.insert(0, '/home/razla/XAITampering/')
@@ -10,7 +14,7 @@ sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAITampering/')
 sys.path.insert(0, '/home/snirvit/AttaXAI')
 
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
-from AttaXAI.models.vgg import vgg16_bn
+from models.vgg import vgg16_bn
 # from AttaXAI.models.vgg import vgg16_bn
 
 CIFAR10_LABELS = {
@@ -1107,12 +1111,6 @@ def load_images(n_imgs, dataset, seed):
             target_images.append(img_path)
     return base_images, target_images
 
-
-
-
-
-
-
 def get_optimizer(opt, V, lr, mu, weight_decay):
     match opt.lower():
         case 'adam':
@@ -1123,3 +1121,24 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
             return torch.optim.RMSprop([V], lr=lr, momentum = mu, weight_decay = weight_decay) # 3 layer update
         case _:
             raise Exception('No such case!')
+
+def get_expl(model, x, method, desired_idx=None):
+    if method == 'integrated_grad':
+        xai = IntegratedGradients(model)
+    else:
+        raise Exception('No such xai!')
+
+    # mean, std = get_mean_std(dataset)
+    # n_x = transforms.Normalize(mean, std)(x)
+    outputs = model(x)
+    acc, class_idx = F.softmax(outputs, dim=1), torch.max(outputs, 1)[1]
+    if desired_idx is None:
+        attribution = xai.attribute(x, target=class_idx.item())
+    else:
+        attribution = xai.attribute(x, target=desired_idx)
+
+    attribution = torch.sum(torch.abs(attribution), dim=1)
+
+    normalized_attribution = attribution / torch.sum(attribution)
+
+    return normalized_attribution, acc, class_idx
