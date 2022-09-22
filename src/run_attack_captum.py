@@ -26,11 +26,11 @@ argparser.add_argument('--n_iter', type=int, default=2, help='number of iteratio
 argparser.add_argument('--n_pop', type=int, default=2, choices=[50, 100, 200], help='number of individuals sampled from gaussian')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
-argparser.add_argument('--lr', type=float, default=0.0125,choices=[0.025, 0.0125, 0.00625], help='learning rate')
+argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
+argparser.add_argument('--dataset', type=str, default='cifar10', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet'], help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=2, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=10, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
@@ -54,7 +54,7 @@ argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], t
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
-                                'pattern_attribution', 'grad_times_input', 'saliency', 'deep_lift'],
+                                'pattern_attribution', 'grad_times_input', 'deep_lift'],
                         default='deep_lift')
 
 args = argparser.parse_args()
@@ -291,8 +291,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     input_loss = F.mse_loss(best_X_adv, x.detach()) * args.prefactors[0]
     expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
     # save results
-    plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
-    torch.save(x_adv, f"{output_dir}x_{args.method}.pth")
+    plot_overview([x_target, x, best_X_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
+    torch.save(best_X_adv, f"{output_dir}x_{args.method}.pth")
 
 
 # TODO:
