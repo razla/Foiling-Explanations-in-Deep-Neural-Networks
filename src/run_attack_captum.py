@@ -28,7 +28,7 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125,choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='cifar10', choices=['imagenet', 'cifar10'], help='') #later 'cifar100' 'cifar10'
+argparser.add_argument('--dataset', type=str, default='cifar100', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg16', help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=5, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
