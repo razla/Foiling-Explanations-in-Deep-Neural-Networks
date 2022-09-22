@@ -296,6 +296,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
 
 # TODO:
+# Fix best adv bug
+# maybe add guided gradcam - need to choose layer
 # PSO + Grad
 # white on general porpuse net\autoencoder and than black
 # choose hyper parameter search boundrys
