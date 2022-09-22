@@ -55,7 +55,7 @@ argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], t
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
                                 'pattern_attribution', 'grad_times_input', 'saliency'],
-                        default='lrp')
+                        default='guided_backprop')
 
 args = argparser.parse_args()
 
