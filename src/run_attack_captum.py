@@ -283,7 +283,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
-    with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
+    # with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
+    with open('/cs_storage/public_datasets/results/loss_file_2/{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
