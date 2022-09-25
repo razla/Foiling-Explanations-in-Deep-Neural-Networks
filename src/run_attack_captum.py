@@ -22,15 +22,15 @@ warnings.filterwarnings("ignore")
 
 # def main():
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--n_iter', type=int, default=2, help='number of iterations')
-argparser.add_argument('--n_pop', type=int, default=2, choices=[50, 100, 200], help='number of individuals sampled from gaussian')
+argparser.add_argument('--n_iter', type=int, default=400, help='number of iterations')
+argparser.add_argument('--n_pop', type=int, default=125, help='number of individuals sampled from gaussian')
 argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussian distribution')
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='cifar10', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
+argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet'], help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=10, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
@@ -49,8 +49,9 @@ argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=i
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
 argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
+argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995], type=float, default=0.995)
 
-argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float,
+argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float, # default=[1e7, 1e6, 1e4, 1e2]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -68,7 +69,8 @@ max_delta = args.max_delta
 is_scalar = args.is_scalar
 w_decay = args.weight_decay
 opt = args.optimizer
-experiment = f'n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}_w_decay_{w_decay}'
+lr_decay = args.lr_decay
+experiment = f'model_{args.model}_dataset_{args.dataset}_n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}_w_decay_{w_decay}_lr_decay_{lr_decay}'
 if args.to_compress:
     if args.compression_method.lower() == 'pca':
         experiment+='_PCA'
@@ -97,11 +99,12 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 
 seed = 0
 experiment += f'_seed_{seed}'
-np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
+np.save('/cs_storage/public_datasets/results/argparser_2/' + experiment + '.npy', args.__dict__, allow_pickle=True)
+# np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
+# np.save('argparser/' + args.__dict__.__str__() + '.npy', args.__dict__, allow_pickle=True)
 print(experiment, flush=True)
-
-experiment = 'debug'
-print(experiment)
+# experiment = 'debug'
+# print(experiment)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -169,7 +172,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
     optimizer = get_optimizer(opt, V, lr, mu, w_decay)
 
-    scheduler = ExponentialLR(optimizer, gamma=0.995)
+    scheduler = ExponentialLR(optimizer, gamma=lr_decay)
 
     for i in range(args.n_iter):
 
