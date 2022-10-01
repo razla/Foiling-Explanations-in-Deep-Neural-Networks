@@ -158,10 +158,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
             loss_input = F.mse_loss(x_adv_temp, x.detach())
 
-            loss_expl_list.append(loss_expl.item())
-            loss_output_list.append(loss_output.item())
-            loss_input_list.append(loss_input.item())
-
             # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
             # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
             total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2#  + args.prefactors[3] * loss_diff_l1
@@ -172,9 +168,12 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             if j == 0:
                 loss_expl_0 = loss_expl.item()
                 loss_output_0 = loss_output.item()
-                new_x_adv = x_adv_temp.clone()
-                if total_loss_list[0] < best_loss:
-                    best_X_adv = new_x_adv.clone().detach() # 3 layer update
+                loss_input_0 = loss_input.item()
+                loss_expl_list.append(loss_expl_0)
+                loss_output_list.append(loss_output_0)
+                loss_input_list.append(loss_input_0)
+                if total_loss_list[0] < best_loss: # update best
+                    best_X_adv = x_adv_temp.clone().detach() # 3 layer update
                     best_loss = deepcopy(total_loss_list[0].item())
 
         # TODO: Change this one
