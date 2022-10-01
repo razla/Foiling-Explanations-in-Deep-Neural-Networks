@@ -41,7 +41,6 @@ argparser.add_argument('--to_compress', help='applying compression', type=int, c
 argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
 argparser.add_argument('--n_components', help='How many principle components',choices=[175], type=int, default=150)
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
-argparser.add_argument('--synthesize', help='synthesizing target image to org image', type=int, choices=[0,1], default=0)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=int, choices=[0,1], default=0) #later
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
@@ -79,8 +78,6 @@ if args.to_compress:
     experiment += f'_{args.n_components}'
 if args.latin_sampling:
     experiment += f'_LS'
-if args.synthesize:
-    experiment += f'_SYN'
 if args.MC_FGSM:
     experiment += f'_MC_FGSM'
 if args.uniPixel:
@@ -129,10 +126,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     x_target = load_image(data_mean, data_std, device, target_image, args.dataset)
     if x is None or x_target is None:
         continue
-    if args.synthesize:
-        x_adv = x_target.clone().detach().requires_grad_()
-    else:
-        x_adv = x.clone().detach().requires_grad_()
+    x_adv = x.clone().detach().requires_grad_()
     x_noise = x.clone().detach().requires_grad_()
     # produce expls
     org_expl, org_acc, org_idx = get_expl(model, args.model, x, args.method)
@@ -284,7 +278,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
 
     # with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
-    with open('/cs_storage/public_datasets/results/loss_file_2/{experiment}_{index}.txt', 'a') as file:
+    with open(f'/cs_storage/public_datasets/results/loss_file_2/{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
