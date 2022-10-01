@@ -145,8 +145,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     scheduler = ExponentialLR(optimizer, gamma=lr_decay)
 
     for i in range(args.n_iter):
-        loss_expl_0 = None
-        loss_output_0 = None
         for j, noise in enumerate(noise_list):
             delta = V.data + noise.data.float()
             x_adv_temp = x.data + delta # 3 layer update
@@ -166,12 +164,12 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             torch.cuda.empty_cache()
 
             if j == 0:
-                loss_expl_0 = loss_expl.item()
-                loss_output_0 = loss_output.item()
-                loss_input_0 = loss_input.item()
-                loss_expl_list.append(loss_expl_0)
-                loss_output_list.append(loss_output_0)
-                loss_input_list.append(loss_input_0)
+                # loss_expl_0 = loss_expl.item()
+                # loss_output_0 = loss_output.item()
+                # loss_input_0 = loss_input.item()
+                loss_expl_list.append(loss_expl.item())
+                loss_output_list.append(loss_output.item())
+                loss_input_list.append(loss_input.item())
                 if total_loss_list[0] < best_loss: # update best
                     best_X_adv = x_adv_temp.clone().detach() # 3 layer update
                     best_loss = deepcopy(total_loss_list[0].item())
@@ -221,7 +219,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
             expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
             adv_label_name = label_to_name(adv_idx.item(), args.dataset)
-            path = os.path.join(args.output_dir,experiment, org_label_name, target_label_name)
+            path = os.path.join(args.output_dir, experiment, index, org_label_name, target_label_name)
             output_dir = make_dir(path)
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i],
             [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
@@ -233,7 +231,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         else:
             for noise in noise_list[1:]: # don't change the zero tensor
                 _ = noise.data.normal_(mean,std).requires_grad_()
-        print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_0, loss_output_0))
+        print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_list[-1], loss_output_list[-1]))
 
     # with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
     with open(f'/cs_storage/public_datasets/results/loss_file_2/{experiment}_{index}.txt', 'a') as file:
