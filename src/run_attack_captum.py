@@ -37,9 +37,6 @@ argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg
 argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=[0,1], default=1) #later
-argparser.add_argument('--to_compress', help='applying compression', type=int, choices=[0,1], default=0)
-argparser.add_argument('--compression_method', help='PCA or SVD', type=str, default='PCA')
-argparser.add_argument('--n_components', help='How many principle components',choices=[175], type=int, default=150)
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
 argparser.add_argument('--uniPixel', help='treating RGB values as one', type=int, choices=[0,1], default=0) #later
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
@@ -59,7 +56,6 @@ argparser.add_argument('--method', help='algorithm for expls',
 
 args = argparser.parse_args()
 
-print(f'args.to_compress: {args.to_compress}', flush=True)
 
 n_iter = args.n_iter
 n_pop = args.n_pop
@@ -70,12 +66,7 @@ w_decay = args.weight_decay
 opt = args.optimizer
 lr_decay = args.lr_decay
 experiment = f'model_{args.model}_dataset_{args.dataset}_n_iter_{n_iter}_n_pop_{n_pop}_method_{args.method}_lr_{args.lr}_max_delta_{max_delta}_opt_{opt}_w_decay_{w_decay}_lr_decay_{lr_decay}'
-if args.to_compress:
-    if args.compression_method.lower() == 'pca':
-        experiment+='_PCA'
-    else:
-        experiment+='_SVD'
-    experiment += f'_{args.n_components}'
+
 if args.latin_sampling:
     experiment += f'_LS'
 if args.MC_FGSM:
@@ -143,14 +134,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     best_X_adv = deepcopy(x_adv)
     best_loss = float('inf')
 
-    if args.to_compress:
-        pca_3 = Compression_3_channels(args.n_components, method=args.compression_method)
-        x_compressed = pca_3.fit_transform(x.detach().cpu().numpy()[0].T)
-        img_recon = pca_3.inverse_transform()
-        x_recon = torch.tensor(img_recon.T).unsqueeze(0).to(device)
-        x_compressed = torch.tensor(x_compressed.T).unsqueeze(0).to(device)
-        x_adv_comp = x_compressed.clone()
-        x_noise = x_compressed.clone()
 
     if uniPixel:
         x_noise = x_noise[:,0:1,:,:]
@@ -173,14 +156,9 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         loss_expl_0 = None
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
-            if args.to_compress:
-                x_adv_recon = pca_3.inverse_transform_noise(V.data.T.cpu().numpy() + noise.data.T.cpu().numpy(), uniPixel) # 3 layer update
-                x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-                delta = x_recon - x_adv_recon
-            else:
-                delta = V.data + noise.data.float()
-                if uniPixel:
-                    delta = delta.repeat(1,3,1,1)
+            delta = V.data + noise.data.float()
+            if uniPixel:
+                delta = delta.repeat(1,3,1,1)
             x_adv_temp = x.data + delta # 3 layer update
             _ = x_adv_temp.requires_grad_()
 
@@ -231,14 +209,9 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         optimizer.step()
         print(scheduler.get_last_lr())
         scheduler.step()
-        if args.to_compress:
-            x_adv_recon = pca_3.inverse_transform_noise(V.detach().cpu().numpy().T, uniPixel)
-            x_adv_recon = torch.tensor(x_adv_recon.T).unsqueeze(0).to(device)
-            delta = x_recon - x_adv_recon
-        else:
-            delta = V
-            if uniPixel:
-                delta = delta.repeat(1,3,1,1)
+        delta = V
+        if uniPixel:
+            delta = delta.repeat(1,3,1,1)
 
         delta[delta < -max_delta] = -max_delta
         delta[max_delta < delta] = max_delta
