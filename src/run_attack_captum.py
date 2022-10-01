@@ -164,6 +164,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             torch.cuda.empty_cache()
 
             if j == 0:
+                adv_expl_0 = adv_expl
+                adv_idx_0 = class_idx.item()
                 loss_expl_list.append(loss_expl.item())
                 loss_output_list.append(loss_output.item())
                 loss_input_list.append(loss_input.item())
@@ -210,14 +212,13 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         std = torch.clip(std, min=0.0001)
 
         if i % 25 == 0:
-            adv_expl, _, adv_idx = get_expl(model, args.model, x_adv, args.method)
-            input_loss_i = F.mse_loss(x_adv, x.detach()) * args.prefactors[0]
-            expl_loss_i = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
-            adv_label_name = label_to_name(adv_idx.item(), args.dataset)
+            input_loss_i = loss_input_list[-1]
+            expl_loss_i = loss_expl_list[-1] * args.prefactors[0]
+            adv_label_name = label_to_name(adv_idx_0, args.dataset)
             path = os.path.join(args.output_dir, experiment, index, org_label_name, target_label_name)
             output_dir = make_dir(path)
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i],
-            [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
+            [target_expl, org_expl, adv_expl_0], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
 
         if args.latin_sampling:
             sample = torch.tensor(norm(loc=mean.item(), scale=std.item()).ppf(sampler.random(n=n_pop-1))).to(device)
