@@ -38,7 +38,6 @@ argparser.add_argument('--output_dir', type=str, default='output/', help='direct
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=[0,1], default=1) #later
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
-argparser.add_argument('--uniPixel', help='treating RGB values as one', type=int, choices=[0,1], default=0) #later
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
 argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=0) # later
@@ -59,7 +58,6 @@ args = argparser.parse_args()
 
 n_iter = args.n_iter
 n_pop = args.n_pop
-uniPixel = args.uniPixel
 max_delta = args.max_delta
 is_scalar = args.is_scalar
 w_decay = args.weight_decay
@@ -71,8 +69,6 @@ if args.latin_sampling:
     experiment += f'_LS'
 if args.MC_FGSM:
     experiment += f'_MC_FGSM'
-if args.uniPixel:
-    experiment += f'_uniPixel'
 if opt.lower() in ['sgd', 'rmsprop']:
     experiment += f'_mu_{args.momentum}'
 if is_scalar:
@@ -134,10 +130,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     best_X_adv = deepcopy(x_adv)
     best_loss = float('inf')
 
-
-    if uniPixel:
-        x_noise = x_noise[:,0:1,:,:]
-        V = x_noise.clone().detach().zero_()
     noise_list = [x_noise.clone().detach().data.normal_(mean.item(), std.item()).requires_grad_() for _ in range(n_pop)]
     noise_list[0] = x_noise.clone().detach().zero_().requires_grad_()
     if args.latin_sampling:
@@ -157,8 +149,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
             delta = V.data + noise.data.float()
-            if uniPixel:
-                delta = delta.repeat(1,3,1,1)
             x_adv_temp = x.data + delta # 3 layer update
             _ = x_adv_temp.requires_grad_()
 
@@ -210,9 +200,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         print(scheduler.get_last_lr())
         scheduler.step()
         delta = V
-        if uniPixel:
-            delta = delta.repeat(1,3,1,1)
-
         delta[delta < -max_delta] = -max_delta
         delta[max_delta < delta] = max_delta
         x_adv.data = x.data + delta # 3 layer update
