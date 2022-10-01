@@ -164,9 +164,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             torch.cuda.empty_cache()
 
             if j == 0:
-                # loss_expl_0 = loss_expl.item()
-                # loss_output_0 = loss_output.item()
-                # loss_input_0 = loss_input.item()
                 loss_expl_list.append(loss_expl.item())
                 loss_output_list.append(loss_output.item())
                 loss_input_list.append(loss_input.item())
@@ -188,8 +185,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
         else:
             grad_J /= len(noise_list)
         grad_J = grad_J.detach()
-        subset_idx = torch.rand(grad_J.shape) < subset_idx_threshold
-        grad_J[subset_idx] = 0
         optimizer.zero_grad()
 
         V.grad = grad_J * (-1)
