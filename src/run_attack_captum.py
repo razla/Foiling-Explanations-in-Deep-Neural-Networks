@@ -98,8 +98,10 @@ data_mean, data_std = get_mean_std(args.dataset)
 pretrained_model = load_model(args.model, args.dataset, device)
 model = pretrained_model.eval().to(device)
 
-base_images_paths, target_images_paths = load_images(args.n_imgs, args.dataset, seed)
+base_images_paths, target_images_paths = load_images(args.n_imgs+100, args.dataset, seed)
 for index, (base_image, target_image) in enumerate(zip(base_images_paths, target_images_paths)):
+    if index > args.n_imgs:
+        break
     loss_expl_list = []
     loss_input_list = []
     loss_output_list = []
@@ -140,11 +142,9 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     V = x_noise.clone().detach().zero_()
 
     optimizer = get_optimizer(opt, V, lr, mu, w_decay)
-
     scheduler = ExponentialLR(optimizer, gamma=lr_decay)
 
     for i in range(args.n_iter):
-
         loss_expl_0 = None
         loss_output_0 = None
         for j, noise in enumerate(noise_list):
@@ -197,7 +197,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
         V.grad = grad_J * (-1)
         optimizer.step()
-        print(scheduler.get_last_lr())
         scheduler.step()
         delta = V
         delta[delta < -max_delta] = -max_delta
