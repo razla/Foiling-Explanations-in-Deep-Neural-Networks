@@ -98,8 +98,9 @@ pretrained_model = load_model(args.model, args.dataset, device)
 model = pretrained_model.eval().to(device)
 
 base_images_paths, target_images_paths = load_images(args.n_imgs+100, args.dataset, seed)
+gray_img_cnt = 0
 for index, (base_image, target_image) in enumerate(zip(base_images_paths, target_images_paths)):
-    if index > args.n_imgs:
+    if index - gray_img_cnt >= args.n_imgs:
         break
     loss_expl_list = []
     loss_input_list = []
@@ -112,6 +113,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     x = load_image(data_mean, data_std, device, base_image, args.dataset)
     x_target = load_image(data_mean, data_std, device, target_image, args.dataset)
     if x is None or x_target is None:
+        gray_img_cnt+=1
         continue
     x_adv = x.clone().detach().requires_grad_()
     x_noise = x.clone().detach().requires_grad_()
