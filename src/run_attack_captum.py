@@ -30,7 +30,7 @@ argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.012
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet'], help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=2, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
@@ -40,13 +40,13 @@ argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
-argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=0) # later
+argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=1) # later
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
 argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
-argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995], type=float, default=0.995)
+argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995, 0.99], type=float, default=1)
 
-argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 1e4, 1e2], type=float, # default=[1e7, 1e6, 1e4, 1e2]
+argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 1e4, 1e2]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -83,12 +83,11 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 
 seed = 0
 experiment += f'_seed_{seed}'
-np.save('/cs_storage/public_datasets/results/argparser_2/' + experiment + '.npy', args.__dict__, allow_pickle=True)
-# np.save('argparser/' + experiment + '.npy', args.__dict__, allow_pickle=True)
-# np.save('argparser/' + args.__dict__.__str__() + '.npy', args.__dict__, allow_pickle=True)
+
+argparser_dir = make_dir('argparser_3/' )
+np.save(argparser_dir + experiment + '.npy', args.__dict__, allow_pickle=True)
+# experiment = 'debug/no_lr_decay_MC_FGSM'
 print(experiment, flush=True)
-# experiment = 'debug'
-# print(experiment)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -109,7 +108,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     std = torch.tensor(args.std)
     lr = args.lr
     mu = args.momentum
-    subset_idx_threshold = 0
     # load images
     x = load_image(data_mean, data_std, device, base_image, args.dataset)
     x_target = load_image(data_mean, data_std, device, target_image, args.dataset)
@@ -142,7 +140,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     V = x_noise.clone().detach().zero_()
 
     optimizer = get_optimizer(opt, V, lr, mu, w_decay)
-    scheduler = ExponentialLR(optimizer, gamma=lr_decay)
+    scheduler = ExponentialLR(optimizer, gamma=lr_decay, verbose=False)
 
     for i in range(args.n_iter):
         for j, noise in enumerate(noise_list):
@@ -215,7 +213,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             input_loss_i = loss_input_list[-1]
             expl_loss_i = loss_expl_list[-1] * args.prefactors[0]
             adv_label_name = label_to_name(adv_idx_0, args.dataset)
-            path = os.path.join(args.output_dir, experiment, index, org_label_name, target_label_name)
+            path = os.path.join(args.output_dir, experiment, str(index), org_label_name, target_label_name)
             output_dir = make_dir(path)
             plot_overview([x_target, x, x_adv], [target_label_name, org_label_name, adv_label_name], [input_loss_i, expl_loss_i],
             [target_expl, org_expl, adv_expl_0], data_mean, data_std, filename=f"{output_dir}{i}_{args.method}.png")
@@ -229,8 +227,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_list[-1], loss_output_list[-1]))
 
-    # with open(f'loss_file/{experiment}_{index}.txt', 'a') as file:
-    with open(f'/cs_storage/public_datasets/results/loss_file_2/{experiment}_{index}.txt', 'a') as file:
+    loss_dir = make_dir(f'/loss_file_3/{experiment}_{index}.txt')
+    with open(loss_dir, 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')
@@ -238,17 +236,14 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     # test with original model (with relu activations)
     adv_expl, adv_acc, class_idx = get_expl(model, args.model, best_X_adv, args.method)
     adv_label_name = label_to_name(class_idx.item(), args.dataset)
-    input_loss = F.mse_loss(best_X_adv, x.detach()) * args.prefactors[0]
-    expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[1]
+    input_loss = F.mse_loss(best_X_adv, x.detach()) * args.prefactors[1]
+    expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[0]
     # save results
     plot_overview([x_target, x, best_X_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
     torch.save(best_X_adv, f"{output_dir}x_{args.method}.pth")
 
 
 # TODO:
-# Fix best adv bug
 # maybe add guided gradcam - need to choose layer
 # PSO + Grad
 # white on general porpuse net\autoencoder and than black
-# choose hyper parameter search boundrys
-# distance from original image
