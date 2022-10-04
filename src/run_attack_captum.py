@@ -242,7 +242,15 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     expl_loss = F.mse_loss(adv_expl, target_expl) * args.prefactors[0]
     # save results
     plot_overview([x_target, x, best_X_adv], [target_label_name, org_label_name, adv_label_name], [input_loss, expl_loss], [target_expl, org_expl, adv_expl], data_mean, data_std, filename=f"{output_dir}best_adv_{args.method}.png")
-    torch.save(best_X_adv, f"{output_dir}x_{args.method}.pth")
+    
+    torch.save(best_X_adv, f"{output_dir}best_X_adv.pth")
+    torch.save(adv_expl, f"{output_dir}adv_expl.pth")
+
+    torch.save(x_target, f"{output_dir}x_target.pth")
+    torch.save(target_expl, f"{output_dir}target_expl.pth")
+
+    torch.save(x, f"{output_dir}x.pth")
+    torch.save(org_expl, f"{output_dir}org_expl.pth")
 
 
 # TODO:
