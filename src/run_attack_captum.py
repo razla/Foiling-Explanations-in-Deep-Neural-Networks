@@ -30,21 +30,21 @@ argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.012
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
 argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet'], help='model to use')
-argparser.add_argument('--n_imgs', type=int, default=2, help='number of images to execute on')
+argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
-argparser.add_argument('--output_dir', type=str, default='output/', help='directory to save results to')
+argparser.add_argument('--output_dir', type=str, default='output_3/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=[0,1], default=1) #later
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_grad_update', help='using gradient update for the std', type=int, choices=[0,1], default=1)
 argparser.add_argument('--std_exp_update', help='using exponential decay for the std', type=float, default=0.99) # later
-argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=1) # later
+argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=int, choices=[0,1], default=0) # later
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
 argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
-argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995, 0.99], type=float, default=1)
+argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995, 0.99], type=float, default=0.995)
 
 argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 1e4, 1e2]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
