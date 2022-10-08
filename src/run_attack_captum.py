@@ -29,7 +29,7 @@ argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussi
 argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
 argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
-argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet'], help='model to use')
+argparser.add_argument('--model', type=str, default='vgg', choices=['vgg', 'resnet', 'mobilenet'], help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
@@ -44,9 +44,9 @@ argparser.add_argument('--MC_FGSM', help='using MC-FGSM gradient update', type=i
 argparser.add_argument('--max_delta', help='maximum change in image', type=float, default=1.0)
 argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'], type=str, default='Adam')
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
-argparser.add_argument('--lr_decay', help='', choices=[1.0, 0.999, 0.995, 0.99], type=float, default=0.995)
+argparser.add_argument('--lr_decay', help='', choices=[0.999], type=float, default=0.999)
 
-argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 1e4, 1e2]
+argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 0, 0] [1e11, 1e6, 0, 0]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -86,7 +86,7 @@ experiment += f'_seed_{seed}'
 
 argparser_dir = make_dir('argparser_3/' )
 np.save(argparser_dir + experiment + '.npy', args.__dict__, allow_pickle=True)
-# experiment = 'debug/no_lr_decay_MC_FGSM'
+# experiment = 'debug/imagenet_mobilenet_deep_lift_lr_0.0125_lr_decay_0.999_1e11_1e6'
 print(experiment, flush=True)
 
 # options
@@ -229,8 +229,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_list[-1], loss_output_list[-1]))
 
-    loss_dir = make_dir(f'/loss_file_3/{experiment}_{index}.txt')
-    with open(loss_dir, 'a') as file:
+    loss_dir = make_dir(f'loss_file_3/')
+    with open(loss_dir + f'{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
         file.write('expl loss ' + str(index) + ', ' + str(loss_expl_list) + '\n')

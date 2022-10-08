@@ -1185,10 +1185,12 @@ def load_model(model_name, dataset, device):
         else:
             raise Exception('No such model for cifar10!')
     elif dataset == 'imagenet':
-        if model_name == 'vgg':
+        if model_name == 'vgg' or model_name == 'vgg16':
             model = torchvision.models.vgg16(pretrained=True).to(device).eval()
         elif model_name == 'resnet':
             model = torchvision.models.resnet34(pretrained=True).to(device).eval()
+        elif model_name == 'mobilenet':
+            model = torchvision.models.mobilenet_v2(pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for imagenet!')
     else:
@@ -1240,7 +1242,7 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
             raise Exception('No such case!')
 
 def convert_relus(model, model_name):
-    if model_name == 'vgg':
+    if model_name in ['vgg', 'vgg16']:
         relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
         for *parent, k in relu_lst:
             model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
@@ -1248,6 +1250,13 @@ def convert_relus(model, model_name):
         for name, module in model.named_modules():
             if hasattr(module, 'relu'):
                 module.relu = torch.nn.ReLU(inplace=False)
+    elif model_name == 'mobilenet':
+        name_list = []
+        for name, module in model.named_modules():
+            if isinstance(module, torch.nn.ReLU6):
+                name_list.append(name)
+        for name in name_list:
+            setattr(model, name, torch.nn.ReLU6(inplace=False))
     else:
         raise Exception('No such model!')
 
