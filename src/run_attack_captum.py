@@ -28,8 +28,9 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
-argparser.add_argument('--model', type=str, default='inception', choices=['vgg', 'resnet', 'mobilenet', 'inception'], help='model to use')
+argparser.add_argument('--dataset', type=str, default='cifar100', choices=['imagenet', 'cifar100'], help='')
+argparser.add_argument('--model', type=str, default='repvgg', choices=['vgg', 'inception', 'repvgg'],
+                       help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
@@ -93,7 +94,7 @@ print(experiment, flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # load model
-data_mean, data_std = get_mean_std(args.dataset, args.model)
+data_mean, data_std = get_mean_std(args.dataset)
 pretrained_model = load_model(args.model, args.dataset, device)
 model = pretrained_model.eval().to(device)
 
