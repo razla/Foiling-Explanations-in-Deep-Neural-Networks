@@ -93,7 +93,7 @@ print(experiment, flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # load model
-data_mean, data_std = get_mean_std(args.dataset)
+data_mean, data_std = get_mean_std(args.dataset, args.model)
 pretrained_model = load_model(args.model, args.dataset, device)
 model = pretrained_model.eval().to(device)
 

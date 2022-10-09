@@ -21,6 +21,8 @@ sys.path.insert(0, '/home/snirvit/AttaXAI')
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
 # from models.vgg import vgg16_bn
 from AttaXAI.models.vgg import vgg16_bn
+from models.inception import inception_v3
+# from AttaXAI.models.inception import inception_v3
 
 CIFAR10_LABELS = {
     0: 'airplane',
@@ -1175,6 +1177,8 @@ def load_model(model_name, dataset, device):
             model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True).to(device).eval()
         elif model_name == 'resnet':
             model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True).to(device).eval()
+        elif model_name == 'inception':
+            model = inception_v3(pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for cifar10!')
     elif dataset == 'cifar100':
@@ -1199,10 +1203,14 @@ def load_model(model_name, dataset, device):
         raise Exception('No such dataset!')
     return model
 
-def get_mean_std(dataset):
+def get_mean_std(dataset, model):
     if dataset == 'cifar10':
-        mean = np.array([0.4914, 0.4822, 0.4465])
-        std = np.array([0.2023, 0.1994, 0.201])
+        if model == 'inception':
+            mean = np.array([0.4914, 0.4822, 0.4465])
+            std = np.array([0.2471, 0.2435, 0.2616])
+        else:
+            mean = np.array([0.4914, 0.4822, 0.4465])
+            std = np.array([0.2023, 0.1994, 0.201])
     elif dataset == 'cifar100':
         mean = np.array([0.507, 0.4865, 0.4409])
         std = np.array([0.2673, 0.2564, 0.2761])
