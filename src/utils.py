@@ -19,8 +19,8 @@ sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAITampering/')
 sys.path.insert(0, '/home/snirvit/AttaXAI')
 
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
-from models.vgg import vgg16_bn
-# from AttaXAI.models.vgg import vgg16_bn
+# from models.vgg import vgg16_bn
+from AttaXAI.models.vgg import vgg16_bn
 
 CIFAR10_LABELS = {
     0: 'airplane',
@@ -1191,6 +1191,8 @@ def load_model(model_name, dataset, device):
             model = torchvision.models.resnet34(pretrained=True).to(device).eval()
         elif model_name == 'mobilenet':
             model = torchvision.models.mobilenet_v2(pretrained=True).to(device).eval()
+        elif model_name == 'inception':
+            model = torchvision.models.inception_v3(pretrained=True).to(device).eval()
         else:
             raise Exception('No such model for imagenet!')
     else:
@@ -1257,6 +1259,8 @@ def convert_relus(model, model_name):
                 name_list.append(name)
         for name in name_list:
             setattr(model, name, torch.nn.ReLU6(inplace=False))
+    elif model_name == 'inception':
+        print('Inception model, no need to replace anything')
     else:
         raise Exception('No such model!')
 
