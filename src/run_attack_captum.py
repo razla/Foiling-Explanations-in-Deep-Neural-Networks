@@ -28,13 +28,14 @@ argparser.add_argument('--mean', type=float, default=0, help='mean of the gaussi
 argparser.add_argument('--std', type=float, default=0.1, help='std of the gaussian distribution')
 argparser.add_argument('--lr', type=float, default=0.0125, choices=[0.025, 0.0125, 0.00625], help='learning rate')
 argparser.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
-argparser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'cifar10', 'cifar100'], help='') #later 'cifar100' 'cifar10'
-argparser.add_argument('--model', type=str, default='inception', choices=['vgg', 'resnet', 'mobilenet', 'inception'], help='model to use')
+argparser.add_argument('--dataset', type=str, default='cifar100', choices=['imagenet', 'cifar100'], help='')
+argparser.add_argument('--model', type=str, default='mobilenet', choices=['vgg', 'inception', 'repvgg', 'mobilenet'],
+                       help='model to use')
 argparser.add_argument('--n_imgs', type=int, default=100, help='number of images to execute on')
 argparser.add_argument('--img', type=str, default='../data/collie.jpeg', help='image net file to run attack on')
 argparser.add_argument('--target_img', type=str, default='../data/tiger_cat.jpeg',
                         help='imagenet file used to generate target expl')
-argparser.add_argument('--output_dir', type=str, default='output_3/', help='directory to save results to')
+argparser.add_argument('--output_dir', type=str, default='output_MOBILE_CIFAR/', help='directory to save results to')
 argparser.add_argument('--beta_growth', help='enable beta growth', action='store_true')
 argparser.add_argument('--is_scalar', help='is std a scalar', type=int, choices=[0,1], default=1) #later
 argparser.add_argument('--latin_sampling', help='sample with latin hypercube', type=int, choices=[0,1], default=1)
@@ -46,7 +47,7 @@ argparser.add_argument('--optimizer', help='', choices=['Adam', 'SGD', 'RMSprop'
 argparser.add_argument('--weight_decay', help='', choices=[0.0, 0.0001], type=float, default=0.0)
 argparser.add_argument('--lr_decay', help='', choices=[0.999], type=float, default=0.999)
 
-argparser.add_argument('--prefactors', nargs=4, default=[1e11, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 0, 0] [1e11, 1e6, 0, 0]
+argparser.add_argument('--prefactors', nargs=4, default=[1e7, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 0, 0] [1e11, 1e6, 0, 0]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
                         choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
@@ -84,7 +85,7 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 seed = 0
 experiment += f'_seed_{seed}'
 
-argparser_dir = make_dir('argparser_3/' )
+argparser_dir = make_dir('argparser_MOBILE_CIFAR/' )
 np.save(argparser_dir + experiment + '.npy', args.__dict__, allow_pickle=True)
 # experiment = 'debug/imagenet_mobilenet_deep_lift_lr_0.0125_lr_decay_0.999_1e11_1e6'
 print(experiment, flush=True)
@@ -93,7 +94,7 @@ print(experiment, flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # load model
-data_mean, data_std = get_mean_std(args.dataset, args.model)
+data_mean, data_std = get_mean_std(args.dataset)
 pretrained_model = load_model(args.model, args.dataset, device)
 model = pretrained_model.eval().to(device)
 
@@ -115,6 +116,9 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     if x is None or x_target is None:
         gray_img_cnt+=1
         continue
+    # TODO: Delete this!!!
+    # if index < 41:
+    #     continue
     x_adv = x.clone().detach().requires_grad_()
     x_noise = x.clone().detach().requires_grad_()
     # produce expls
@@ -229,7 +233,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_list[-1], loss_output_list[-1]))
 
-    loss_dir = make_dir(f'loss_file_3/')
+    loss_dir = make_dir(f'loss_file_MOBILE_CIFAR/')
     with open(loss_dir + f'{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')

@@ -1,4 +1,3 @@
-import torchvision.transforms as transforms
 import torch.nn.functional as F
 import numpy as np
 import torchvision
@@ -14,28 +13,19 @@ from captum.attr import Saliency
 from captum.attr import LRP
 
 import sys
-sys.path.insert(0, '/home/razla/XAITampering/')
-sys.path.insert(0, 'C:/Users/Raz/Desktop/Studies/PhD/XAITampering/')
+sys.path.insert(0, '/home/razla/AttaXAI/')
 sys.path.insert(0, '/home/snirvit/AttaXAI')
+sys.path.insert(0, '/home/eyalseg/Raz/AttaXAI')
+
+from models.mobilenet import mobilenet
 
 # from explanations_can_be_manipulated.models.vgg import vgg16_bn
 # from models.vgg import vgg16_bn
-from AttaXAI.models.vgg import vgg16_bn
-from models.inception import inception_v3
-# from AttaXAI.models.inception import inception_v3
+# from AttaXAI.models.vgg import vgg16_bn
+# from AttaXAI.models.mobilenet import mobilenet
 
-CIFAR10_LABELS = {
-    0: 'airplane',
-    1: 'automobile',
-    2: 'bird',
-    3: 'cat',
-    4: 'deer',
-    5: 'dog',
-    6: 'frog',
-    7: 'horse',
-    8: 'ship',
-    9: 'truck'
-}
+MOBILENET_PATH = "/cs_storage/public_datasets/mobilenet-124-best.pth"
+
 CIFAR100_LABELS = {
     0: 'apple',
     1: 'aquarium_fish',
@@ -1140,22 +1130,17 @@ IMAGENET_2012_LABELS = {
     998: 'ear, spike, capitulum',
     999: 'toilet tissue, toilet paper, bathroom tissue'
 }
-CIFAR10_LABELS_REVERSE = {v: k for k, v in six.iteritems(CIFAR10_LABELS)}
 CIFAR100_LABELS_REVERSE = {v: k for k, v in six.iteritems(CIFAR100_LABELS)}
 IMAGENET_2012_LABELS_REVERSE = {v: k for k, v in
                                 six.iteritems(IMAGENET_2012_LABELS)}
 
 
-
-CIFAR10_PATH = '/cs_storage/public_datasets/CIFAR10/test'
 CIFAR100_PATH = '/cs_storage/public_datasets/CIFAR100/test/'
 IMAGENET_PATH = '/cs_storage/public_datasets/ImageNet/val'
 
 def label_to_name(label, dataset):
     if dataset == 'imagenet':
         return IMAGENET_2012_LABELS[label]
-    elif dataset == 'cifar10':
-        return CIFAR10_LABELS[label]
     elif dataset == 'cifar100':
         return CIFAR100_LABELS[label]
     else:
@@ -1164,54 +1149,13 @@ def label_to_name(label, dataset):
 def name_to_label(name, dataset):
     if dataset == 'imagenet':
         return IMAGENET_2012_LABELS_REVERSE[name]
-    elif dataset == 'cifar10':
-        return CIFAR10_LABELS_REVERSE[name]
     elif dataset == 'cifar100':
         return CIFAR100_LABELS_REVERSE[name]
     else:
         raise Exception('No such dataset!')
 
-def load_model(model_name, dataset, device):
-    if dataset == 'cifar10':
-        if model_name == 'vgg':
-            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_vgg16_bn", pretrained=True).to(device).eval()
-        elif model_name == 'resnet':
-            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar10_resnet32", pretrained=True).to(device).eval()
-        elif model_name == 'inception':
-            model = inception_v3(pretrained=True).to(device).eval()
-        else:
-            raise Exception('No such model for cifar10!')
-    elif dataset == 'cifar100':
-        if model_name == 'vgg':
-            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True).to(device).eval()
-        elif model_name == 'resnet':
-            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet32", pretrained=True).to(device).eval()
-        else:
-            raise Exception('No such model for cifar10!')
-    elif dataset == 'imagenet':
-        if model_name == 'vgg' or model_name == 'vgg16':
-            model = torchvision.models.vgg16(pretrained=True).to(device).eval()
-        elif model_name == 'resnet':
-            model = torchvision.models.resnet34(pretrained=True).to(device).eval()
-        elif model_name == 'mobilenet':
-            model = torchvision.models.mobilenet_v2(pretrained=True).to(device).eval()
-        elif model_name == 'inception':
-            model = torchvision.models.inception_v3(pretrained=True).to(device).eval()
-        else:
-            raise Exception('No such model for imagenet!')
-    else:
-        raise Exception('No such dataset!')
-    return model
-
-def get_mean_std(dataset, model):
-    if dataset == 'cifar10':
-        if model == 'inception':
-            mean = np.array([0.4914, 0.4822, 0.4465])
-            std = np.array([0.2471, 0.2435, 0.2616])
-        else:
-            mean = np.array([0.4914, 0.4822, 0.4465])
-            std = np.array([0.2023, 0.1994, 0.201])
-    elif dataset == 'cifar100':
+def get_mean_std(dataset):
+    if dataset == 'cifar100':
         mean = np.array([0.507, 0.4865, 0.4409])
         std = np.array([0.2673, 0.2564, 0.2761])
     elif dataset == 'imagenet':
@@ -1223,8 +1167,6 @@ def load_images(n_imgs, dataset, seed):
     np.random.seed(seed=seed)
     if dataset == 'imagenet':
         dataset_path = IMAGENET_PATH
-    elif dataset == 'cifar10':
-        dataset_path = CIFAR10_PATH
     elif dataset == 'cifar100':
         dataset_path = CIFAR100_PATH
     dirs = np.random.choice(os.listdir(dataset_path), n_imgs * 2)
@@ -1251,23 +1193,42 @@ def get_optimizer(opt, V, lr, mu, weight_decay):
         case _:
             raise Exception('No such case!')
 
+def load_model(model_name, dataset, device):
+    if dataset == 'cifar100':
+        if model_name == 'vgg':
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_vgg16_bn", pretrained=True).to(device).eval()
+        elif model_name == 'repvgg':
+            model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_repvgg_a0", pretrained=True).to(device).eval()
+        elif model_name == 'mobilenet':
+            model = mobilenet().to(device)
+            model.load_state_dict(torch.load(MOBILENET_PATH))
+            model.eval()
+        else:
+            raise Exception('No such model for cifar100!')
+    elif dataset == 'imagenet':
+        if model_name == 'vgg' or model_name == 'vgg16':
+            model = torchvision.models.vgg16(pretrained=True).to(device).eval()
+        elif model_name == 'inception':
+            model = torchvision.models.inception_v3(pretrained=True).to(device).eval()
+        else:
+            raise Exception('No such model for imagenet!')
+    else:
+        raise Exception('No such dataset!')
+    return model
+
 def convert_relus(model, model_name):
-    if model_name in ['vgg', 'vgg16']:
+    if model_name in ['vgg', 'vgg16', 'mobilenet']:
         relu_lst = [k.split('.') for k, m in model.named_modules(remove_duplicate=False) if isinstance(m, torch.nn.ReLU)]
-        for *parent, k in relu_lst:
-            model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
-    elif model_name == 'resnet':
-        for name, module in model.named_modules():
-            if hasattr(module, 'relu'):
-                module.relu = torch.nn.ReLU(inplace=False)
-    elif model_name == 'mobilenet':
-        name_list = []
-        for name, module in model.named_modules():
-            if isinstance(module, torch.nn.ReLU6):
-                name_list.append(name)
-        for name in name_list:
-            setattr(model, name, torch.nn.ReLU6(inplace=False))
-    elif model_name == 'inception':
+        if model_name == 'mobilenet':
+            for *parent, k in relu_lst:
+                if len(parent) == 2 and parent[0] == 'stem':
+                    model.get_submodule('.'.join(parent)).relu = torch.nn.ReLU(inplace=False)
+                else:
+                    model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
+        else:
+            for *parent, k in relu_lst:
+                model.get_submodule('.'.join(parent))[int(k)] = torch.nn.ReLU(inplace=False)
+    elif model_name == 'inception' or 'repvgg':
         print('Inception model, no need to replace anything')
     else:
         raise Exception('No such model!')
