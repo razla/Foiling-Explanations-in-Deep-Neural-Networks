@@ -82,10 +82,8 @@ experiment += f'_prefactors_{str(args.prefactors)}'
 
 seed = 0
 experiment += f'_seed_{seed}'
-
-argparser_dir = make_dir('argparser_MOBILE_CIFAR/' )
+argparser_dir = make_dir(f'argparser_{args.model}_{args.dataset}/')
 np.save(argparser_dir + experiment + '.npy', args.__dict__, allow_pickle=True)
-print(experiment, flush=True)
 
 # options
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
