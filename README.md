@@ -23,3 +23,5 @@ You can control all hyperparameters by providing it as argv run_attack_captum.py
 8. --weight_decay - weight decay
 9. --prefactors - regularization terms - first is for the explanation loss and the second for the output loss
 10. --method - which XAI method to use
+
+![alt text](https://github.com/razla/Foiling-Explanations-in-Deep-Neural-Networks/blob/master/figures/algorithm.png)
