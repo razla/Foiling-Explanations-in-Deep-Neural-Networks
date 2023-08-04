@@ -219,8 +219,8 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             for noise in noise_list[1:]: # don't change the zero tensor
                 _ = noise.data.normal_(mean,std).requires_grad_()
         print("Iteration {}: Total Loss: {}, Expl Loss: {}, Output Loss: {}".format(i, total_loss_list[0].item(), loss_expl_list[-1], loss_output_list[-1]))
-
-    loss_dir = make_dir(f'loss_file_MOBILE_CIFAR/')
+    
+    loss_dir = make_dir(f'loss_file_{args.model}_{args.dataset}/')
     with open(loss_dir + f'{experiment}_{index}.txt', 'a') as file:
         file.write('input loss ' + str(index) + ', ' + str(loss_input_list) + '\n')
         file.write('output loss ' + str(index) + ', ' + str(loss_output_list) + '\n')
