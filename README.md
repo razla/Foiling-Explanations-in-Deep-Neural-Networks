@@ -13,14 +13,13 @@ pip install -r requirements.txt
 
 ## Executing the code
 You can control all hyperparameters by providing it as argv run_attack_captum.py:
-
---n_iter - number of iterations
---n_pop - population size
---lr - learning rate
---dataset - dataset
---model - model
---latin_sampling - enable latin sampling
---optimizer - optimization algorithm
---weight_decay - weight decay
---prefactors - regularization terms - first is for the explanation loss and the second for the output loss
---method - which XAI method to use
+1. --n_iter - number of iterations
+2. --n_pop - population size
+3. --lr - learning rate
+4. --dataset - dataset
+5. --model - model
+6. --latin_sampling - enable latin sampling
+7. --optimizer - optimization algorithm
+8. --weight_decay - weight decay
+9. --prefactors - regularization terms - first is for the explanation loss and the second for the output loss
+10. --method - which XAI method to use
