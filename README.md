@@ -12,7 +12,7 @@ Deep neural networks (DNNs) have greatly impacted numerous fields over the past 
 pip install -r requirements.txt
 
 ## Executing the code
-You can control all hyperparameters by providing it as argv run_attack_captum.py:
+You can control all hyperparameters by providing it as argv src/run_attack_captum.py.
 1. --n_iter - number of iterations
 2. --n_pop - population size
 3. --lr - learning rate
