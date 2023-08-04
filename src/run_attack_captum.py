@@ -20,7 +20,6 @@ from stats import get_std_grad
 import warnings
 warnings.filterwarnings("ignore")
 
-# def main():
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_iter', type=int, default=400, help='number of iterations')
 argparser.add_argument('--n_pop', type=int, default=125, help='number of individuals sampled from gaussian')
@@ -87,7 +86,6 @@ experiment += f'_seed_{seed}'
 
 argparser_dir = make_dir('argparser_MOBILE_CIFAR/' )
 np.save(argparser_dir + experiment + '.npy', args.__dict__, allow_pickle=True)
-# experiment = 'debug/imagenet_mobilenet_deep_lift_lr_0.0125_lr_decay_0.999_1e11_1e6'
 print(experiment, flush=True)
 
 # options
@@ -116,9 +114,6 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
     if x is None or x_target is None:
         gray_img_cnt+=1
         continue
-    # TODO: Delete this!!!
-    # if index < 41:
-    #     continue
     x_adv = x.clone().detach().requires_grad_()
     x_noise = x.clone().detach().requires_grad_()
     # produce expls
@@ -255,9 +250,3 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
 
     torch.save(x, f"{output_dir}x.pth")
     torch.save(org_expl, f"{output_dir}org_expl.pth")
-
-
-# TODO:
-# maybe add guided gradcam - need to choose layer
-# PSO + Grad
-# white on general porpuse net\autoencoder and than black
