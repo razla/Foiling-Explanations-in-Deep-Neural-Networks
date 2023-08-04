@@ -154,10 +154,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
             loss_expl = F.mse_loss(adv_expl, target_expl)
             loss_output = F.mse_loss(adv_acc, org_acc.detach())
             loss_input = F.mse_loss(x_adv_temp, x.detach())
-
-            # loss_diff_l2 = F.mse_loss(x_adv_temp, x.detach())
-            # loss_diff_l1 = F.l1_loss(x_adv_temp, x.detach())
-            total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output # + args.prefactors[2] * loss_diff_l2#  + args.prefactors[3] * loss_diff_l1
+            total_loss = args.prefactors[0]*loss_expl + args.prefactors[1]*loss_output
             total_loss_list[j] = total_loss.detach()
             _ = x_adv_temp.detach()
             torch.cuda.empty_cache()
@@ -172,9 +169,7 @@ for index, (base_image, target_image) in enumerate(zip(base_images_paths, target
                     best_X_adv = x_adv_temp.clone().detach() # 3 layer update
                     best_loss = deepcopy(total_loss_list[0].item())
 
-        # TODO: Change this one
         total_loss_list *= -1 # gradient ascent
-
         normalized_rewards = (total_loss_list - total_loss_list.mean()) / torch.clip(input=torch.std(total_loss_list), min=1e-5, max=None)
         normalized_rewards = normalized_rewards.view(-1,1).detach()
         noise_tensor = torch.stack(noise_list).view(len(noise_list),-1).detach()
