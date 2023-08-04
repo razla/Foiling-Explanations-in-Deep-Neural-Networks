@@ -49,8 +49,7 @@ argparser.add_argument('--lr_decay', help='', choices=[0.999], type=float, defau
 argparser.add_argument('--prefactors', nargs=4, default=[1e7, 1e6, 0, 0], type=float, # default=[1e7, 1e6, 0, 0] [1e11, 1e6, 0, 0]
                         help='prefactors of losses (diff expls, class loss, l2 loss, l1 loss)')
 argparser.add_argument('--method', help='algorithm for expls',
-                        choices=['lrp', 'guided_backprop', 'gradient', 'integrated_grad',
-                                'pattern_attribution', 'grad_times_input', 'deep_lift'],
+                        choices=['lrp', 'guided_backprop', 'gradient', 'grad_times_input', 'deep_lift'],
                         default='lrp')
 
 args = argparser.parse_args()
